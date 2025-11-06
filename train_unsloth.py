@@ -2,6 +2,7 @@ from datasets import Dataset
 from unsloth import FastLanguageModel, UnslothTrainer, UnslothTrainingArguments
 import torch
 from typing import Dict, Any
+from peft import PeftModel
 
 
 
@@ -19,7 +20,8 @@ def finetune_model_unsloth(
     lora_alpha: int = 32,
     lora_dropout: float = 0.05,
     target_modules = ("q_proj","k_proj","v_proj","o_proj","gate_proj","up_proj","down_proj"),
-    pack_to_max: bool = True,       # packing per efficienza
+    pack_to_max: bool = True,
+    resume_adapter_repo: str | None = None
     ) -> tuple[Any, Any]:
     """
     Fine-tuning QLoRA con Unsloth per code generation.
@@ -57,6 +59,10 @@ def finetune_model_unsloth(
         bias = "none",
         task_type = "CAUSAL_LM",
     )
+    
+        # Resume da adapter precedente se fornito
+    if resume_adapter_repo:
+        model = PeftModel.from_pretrained(model, resume_adapter_repo)
 
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
