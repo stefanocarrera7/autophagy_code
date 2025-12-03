@@ -13,7 +13,9 @@ def autophagy(
     real_data_train: Dataset,
     real_data_test: Dataset,
     g: int = 10,
-    n_solutions: int = 10
+    n_solutions: int = 10,
+    data_format: str = "he",
+    pass_at_k: int = 1
     ):
 
     # 0) Starting model
@@ -46,8 +48,9 @@ def autophagy(
             resume_adapter_repo=prev_adapter_repo
         )
 
-        perf = test_model(real_data_test, ft_model, ft_tok, n_solutions=n_solutions, k=1)
-        print(f"[gen {t}] metrics: {perf}")
+        perf = test_model(real_data_test, ft_model, ft_tok, n_solutions=n_solutions, data_format=data_format, k=pass_at_k)
+        print("Average Correct solutions per task: ", perf['avg_c'])
+        # print(f"[gen {t}] metrics: {perf}")
 
         # naming
         model_id = f"stefanocarrera/autophagycode_M_{base_tag}_gen{t+1}"

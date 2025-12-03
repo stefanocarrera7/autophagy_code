@@ -1,6 +1,10 @@
 from datasets import load_dataset
 import re
 from datasets import Dataset
+from huggingface_hub import login
+
+HF_TOKEN = ""
+login(token=HF_TOKEN)
 
 def make_executable_assert(assert_list):
     """ Make assert statements of MBPP executable """
@@ -59,3 +63,6 @@ def mbpp_to_he():
     he['entry_point'] = [last_def_name(p) for p in prompts]
     
     return Dataset.from_dict(he)
+
+he = mbpp_to_he()
+he.push_to_hub("stefanocarrera7/autophagy_mbpp_to_he")
