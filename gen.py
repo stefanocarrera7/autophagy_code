@@ -1,5 +1,22 @@
 import re
 
+def prepend_prompt_imports(code: str, prompt_text: str) -> str:
+    imps = re.findall(r'(?m)^(?:from\s+\S+\s+import\s+.*|import\s+.+)\s*$', prompt_text)
+    return (("\n".join(imps) + "\n\n" + code).strip()) if (imps and code) else code or ""
+
+def extract_exec_strict(gen_text: str, prompt_text: str) -> str:
+    # nomi funzioni attese dal prompt (signature nel prompt)
+    allowed = re.findall(r'(?m)^\s*def\s+([A-Za-z_]\w*)\s*\(', prompt_text)
+    if not allowed:
+        return ""
+    blocks = []
+    for name in allowed:
+        pat = re.compile(rf'(?ms)^\s*def\s+{re.escape(name)}\s*\(.*?(?=^\S|\Z)')
+        m = pat.search(gen_text)
+        if m:
+            blocks.append(m.group(0).rstrip())
+    return "\n\n".join(blocks).strip()
+
 
 def generate_solutions(prompt: str,
                        entry_point:str,
@@ -9,23 +26,6 @@ def generate_solutions(prompt: str,
                        max_new_tokens:int = 150,
                        top_p = 0.9,
                        n_solutions: int = 10):
-
-    def extract_exec_strict(gen_text: str, prompt_text: str) -> str:
-        # nomi funzioni attese dal prompt (signature nel prompt)
-        allowed = re.findall(r'(?m)^\s*def\s+([A-Za-z_]\w*)\s*\(', prompt_text)
-        if not allowed:
-            return ""
-        blocks = []
-        for name in allowed:
-            pat = re.compile(rf'(?ms)^\s*def\s+{re.escape(name)}\s*\(.*?(?=^\S|\Z)')
-            m = pat.search(gen_text)
-            if m:
-                blocks.append(m.group(0).rstrip())
-        return "\n\n".join(blocks).strip()
-
-    def prepend_prompt_imports(code: str, prompt_text: str) -> str:
-        imps = re.findall(r'(?m)^(?:from\s+\S+\s+import\s+.*|import\s+.+)\s*$', prompt_text)
-        return (("\n".join(imps) + "\n\n" + code).strip()) if (imps and code) else code or ""
 
     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
     outputs = model.generate(

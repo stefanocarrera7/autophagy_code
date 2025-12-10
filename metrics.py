@@ -65,7 +65,10 @@ def h_effort(h_vol, h_diff):
 
 def halstead_metrics(source):
 
-    tokens = list(tokenize.generate_tokens(io.StringIO(source).readline))
+    try:
+        tokens = list(tokenize.generate_tokens(io.StringIO(source).readline))
+    except:
+        return None
     operators, operands = set(), set()
     N1 = N2 = 0
 
