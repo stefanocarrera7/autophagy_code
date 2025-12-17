@@ -1,6 +1,7 @@
 import ast
 from statistics import mean
 from metrics import passatk
+from metrics import halstead_metrics, original_MI
 from gen import generate_solutions
 import datasets
 from func_timeout import func_timeout, FunctionTimedOut
@@ -322,8 +323,10 @@ def test_model(test_split, model, tokenizer, n_solutions, save_path, data_format
         res = {"task_id":ex['task_id'],
                'best_solution':perf['best_sol'],
                'correct_ratio':perf['c']/n_solutions,
-               'run_time': perf['best_sol_time_ms'],
-               'pass_at_k': passatk(n_solutions, perf['c'], k)}
+               'run_time': perf['best_sol_time'],
+               'best_solution_halstead': halstead_metrics(perf['best_sol']),
+               'pass_at_k': passatk(n_solutions, perf['c'], k),
+               'MI': original_MI(perf['best_sol'])}
         # n, c, t = perf['n'], perf['c'], perf['best_time']
         # pass_at_k.append(passatk(n_solutions, perf['c'], k))
         # tpr.append(c / n if n else 0.0)
@@ -342,6 +345,5 @@ def test_model(test_split, model, tokenizer, n_solutions, save_path, data_format
     #     "avg_passatk": mean(pass_at_k) if pass_at_k else 0.0,
     #     "avg_time": mean(times) if times else None,
     # }
-
 
         
