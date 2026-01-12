@@ -19,6 +19,7 @@ def generate_sample(data,
 
         sample.append({
                         "task_id": data[row]["task_id"],
+                        "entry_point": entry,
                         "prompt": data[row]['prompt'],
                         "completion": perf['best_sol'],
                         "test": data[row]['test'],

@@ -13,9 +13,6 @@ def passatk(n:int, c:int, k:int):
 
 
 
-
-
-
 HALSTEAD_OPERATORS = {
     # Parole chiave di controllo e struttura
     "if", "elif", "else", "for", "while", "break", "continue", "return", "yield",
@@ -100,22 +97,29 @@ def halstead_metrics(source):
             }
 
 
-def cyclomatic_complexity_simplified(source: str) -> int:
-    """
-    Calcola la complessità ciclomatica (McCabe) approssimata per codice Python.
-    Complexity = 1 + numero di punti decisionali (if, for, while, and/or, try/except, ecc.)
-    """
-    tree = ast.parse(source)
-    complexity = 1  # valore minimo
+import ast
+from autophagy_code.mccabe import PathGraphingAstVisitor
 
-    for node in ast.walk(tree):
-        # punti di decisione
-        if isinstance(node, (ast.If, ast.For, ast.While, ast.AsyncFor,
-                             ast.With, ast.AsyncWith, ast.Try, ast.ExceptHandler,
-                             ast.IfExp, ast.BoolOp, ast.comprehension, ast.Match)):
-            complexity += 1
+def cyclomatic_complexity_mccabe(code_string):
+    """
+    Restituisce la complessità massima trovata nel codice.
+    """
+    try:
+        # Compila il codice in un albero sintattico
+        tree = compile(code_string, "stringa", "exec", ast.PyCF_ONLY_AST)
+    except SyntaxError:
+        return None  # Restituisce None se il codice non è valido
 
-    return complexity
+    visitor = PathGraphingAstVisitor()
+    visitor.preorder(tree, visitor)
+    
+    # Se non ci sono grafi (es. codice vuoto o solo commenti), la complessità è 1
+    if not visitor.graphs:
+        return 1
+        
+    # --- CORREZIONE QUI SOTTO ---
+    # Iteriamo sui valori del dizionario visitor.graphs
+    return max(graph.complexity() for graph in visitor.graphs.values())
 
 
 def loc(source: str) -> int:
@@ -176,87 +180,24 @@ def perc_of_comments(source):
 
 
 def original_MI(source: str) -> float:
-    V = halstead_metrics(source).get("volume")
-    G = cyclomatic_complexity_simplified(source)
+    halstead = halstead_metrics(source)
+    if halstead is None:
+        return None
+    V = halstead.get("volume")
+    G = cyclomatic_complexity_mccabe(source)
+    if G == None:
+        return None
     L = loc(source)
     return 171 - 5.2 * math.log(V) - 0.23 * G - 16.2 * math.log(L)
 
 def radon_MI(source: str) -> float:
     V = halstead_metrics(source).get("volume")
-    G = cyclomatic_complexity_simplified(source)
+    G = cyclomatic_complexity_mccabe(source)
+    if G == None:
+        return None
     L = loc(source)
     C = perc_of_comments(source)
     return max(0, 100 * (171 - 5.2 * math.log(V) - 0.23 * G - 16.2 * math.log(L) + 50 * math.sin(math.sqrt(2.4 * C))) / 171)
 
 
-
-def tpr(source: str, entry_point: str, test_inputs, expected_outputs) -> float:
-
-    if len(test_inputs) != len(expected_outputs):
-        raise ValueError("test_inputs ed expected_outputs must be of same length.")
-
-    ns = {}
-    exec(source, ns, ns)
-
-    func = ns.get(entry_point)
-    if func is None or not callable(func):
-        raise ValueError(f"Function '{entry_point}' not found or not callable.")
-
-    if not test_inputs:
-        return 0.0  # nessun test -> TPR definito 0.0
-
-    correct = 0
-
-    for x, y_true in zip(test_inputs, expected_outputs):
-        try:
-            if isinstance(x, tuple):
-                y_pred = func(*x)
-            elif isinstance(x, dict):
-                y_pred = func(**x)
-            else:
-                y_pred = func(x)
-        except Exception:
-            continue
-
-        if y_pred == y_true:
-            correct += 1
-
-    tpr = correct / len(expected_outputs)
-    return tpr
-
-
-
-
-def mean_runtime(source: str, func_name: str, test_inputs) -> float:
-
-    if not test_inputs:
-        raise ValueError("test_inputs can't be empty")
-
-    ns = {}
-    exec(source, ns, ns)
-
-    func = ns.get(func_name)
-    if func is None or not callable(func):
-        raise ValueError(f"Function '{func_name}' not found or not callable.")
-
-    total_time = 0.0
-
-    for x in test_inputs:
-        start = time.perf_counter()
-
-        try:
-            if isinstance(x, tuple):
-                func(*x)
-            elif isinstance(x, dict):
-                func(**x)
-            else:
-                func(x)
-        except Exception:
-            continue
-
-        end = time.perf_counter()
-        total_time += (end - start)
-
-    # Tempo medio sulle esecuzioni riuscite
-    return total_time / len(test_inputs)
 

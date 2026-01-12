@@ -1,12 +1,25 @@
 import ast
 from statistics import mean
-from metrics import passatk
-from metrics import halstead_metrics, original_MI
-from gen import generate_solutions
+from .metrics import passatk
+from .metrics import halstead_metrics, original_MI
+from .gen import generate_solutions
 import datasets
-from func_timeout import func_timeout, FunctionTimedOut
 import time
 import json
+import signal
+
+
+# ---------------- Timeout handler ----------------
+class TimeoutException(Exception):
+    pass
+
+def timeout_handler(signum, frame):
+    raise TimeoutException
+
+# Registra il signal per SIGALRM (solo su UNIX/Linux/Mac)
+signal.signal(signal.SIGALRM, timeout_handler)
+
+#################################
 
 def extract_inputs_results(code_str, target_names=("inputs", "results")):
     """Estrae input e risultati per il formato HumanEval (he)."""
@@ -168,15 +181,16 @@ def extract_inputs_results(code_str, target_names=("inputs", "results")):
 ######################
 import functools
 import timeit
+
 def wrapper_func_time(func, run, *args):
     frozen_func = functools.partial(func, *args)
     t_runs = timeit.repeat(frozen_func, repeat = run, number=1)
     return min(t_runs)
 
 
-def test_solutions(solutions, entry_point, test_data, data_format="he", test_timeout=1, test_runs = 5):
+def test_solutions(solutions, entry_point, test_data, data_format="he", test_runs = 5):
     """
-    Testa le soluzioni generate gestendo correttamente timeout e scope.
+    Testa le soluzioni generate
     """
     n_correct = 0
     best_ok = 0
@@ -203,14 +217,18 @@ def test_solutions(solutions, entry_point, test_data, data_format="he", test_tim
                 "running_time": []}
 
     for i, sol in enumerate(solutions):
+        timeouts = 0
         ns = {}
         try:
             # --- FASE 1: DEFINIZIONE DELLA FUNZIONE ---
-            # Non usiamo timeout qui perché è solo definizione ed è immediata.
-            exec(sol.strip(), ns, ns)
+            # Anche la definizione dovrebbe essere protetta da timeout (per loop infiniti globali)
+            signal.alarm(1)
+            try:
+                exec(sol.strip(), ns, ns)
+            finally:
+                signal.alarm(0) # DISATTIVA ALLARME
 
             if entry_point not in ns:
-                # Se l'entry point non c'è, proviamo a stampare cosa c'è per debug
                 keys = [k for k in ns.keys() if not k.startswith('__')]
                 print(f"[SOL {i}] Errore: La funzione '{entry_point}' non è stata definita. Trovato: {keys}")
                 continue
@@ -224,47 +242,69 @@ def test_solutions(solutions, entry_point, test_data, data_format="he", test_tim
             
             if data_format == 'he':
                 for inp, expected in zip(inputs_list[:n_tests], results_list[:n_tests]):
+
+                    if timeouts >= 1:
+                        print('Too much timeouts for the same solution in the test. Skipping this solution\n')
+                        break
+                    
                     try:
-                        if isinstance(inp, (list, tuple)):
-                            out = func_timeout(test_timeout, candidate_func, args=inp)
-                        else:
-                            out = func_timeout(test_timeout, candidate_func, args=(inp,))
-                        
+                        # --- INIZIO LOGICA SIGNAL CORRETTA ---
+                        signal.alarm(5) # Imposta timer
+                        try:
+                            if isinstance(inp, (list, tuple)):
+                                out = candidate_func(*inp)
+                            else:
+                                out = candidate_func(inp)
+                        finally:
+                            signal.alarm(0) # DISATTIVA timer (fondamentale!)
+                        # --- FINE LOGICA SIGNAL CORRETTA ---
+
                         if out == expected:
                             ok += 1
                         else:
                             fail += 1
-                    except FunctionTimedOut:
-                        fail += 1
+                            
+                    except TimeoutException:
+                        print('TIMEOUT\n')
+                        timeouts += 1
+                        fail += 1 # Aggiunto fail qui per coerenza
                     except Exception:
                         fail += 1
 
                 # Estrapoliamo il running time solo se la correttezza funzionale è garantita
                 if fail == 0:
                     sol_time = 0
-                    for inp, expected in zip(inputs_list[:n_tests], results_list[:n_tests]):
+                    sample_size = min(20, n_tests)
+
+                    for inp, expected in zip(inputs_list[:sample_size], results_list[:sample_size]):
                         if isinstance(inp, (list, tuple)):
                             t_run = wrapper_func_time(candidate_func, test_runs, *inp)
                         else:
                             t_run  = wrapper_func_time(candidate_func, test_runs, inp)
                         sol_time += t_run 
 
-            else: # data_format == 'mbpp' (basato su assert)
+            else: # data_format == 'mbpp'
                 for a in asserts:
+                    if timeouts >= 1:
+                        print('Too much timeouts for the same solution in the test. Skipping this solution\n')
+                        break
                     try:
-                        func_timeout(test_timeout, exec, args=(a, ns, ns))
+                        signal.alarm(5)
+                        try:
+                            exec(a, ns, ns)
+                        finally:
+                            signal.alarm(0) # DISATTIVA timer
+                        
                         ok += 1
-                    except FunctionTimedOut:
-                        print(f"Timeout test: {a}")
-                        fail += 1
                     except AssertionError:
-                        # print(f"   Assert fallito: {a}")
+                        fail += 1
+                    except TimeoutException:
+                        print('TIMEOUT\n')
+                        timeouts += 1
                         fail += 1
                     except Exception as e:
-                        # print(f"   Errore runtime: {e}")
                         fail += 1
 
-                # Estrapoliamo il running time solo se la correttezza funzionale è garantita
                 if fail == 0:
                     sol_time = 0
                     for a in asserts:
@@ -272,31 +312,39 @@ def test_solutions(solutions, entry_point, test_data, data_format="he", test_tim
                         sol_time += t_run
 
             # --- FASE 3: STATISTICHE ---
-            sol_time *= 1000   # ms
+            if sol_time is not False:
+                sol_time_ms = sol_time * 1000
+            else:
+                sol_time_ms = None
+
             total = ok + fail
             ratio = ok / total if total > 0 else 0
-            solutions_sum.append({"sol": sol, "ok": ok, "fail": fail, "total": total, "ratio": ratio, "time_ms": sol_time})
+            solutions_sum.append({"sol": sol, "ok": ok, "fail": fail, "total": total, "ratio": ratio, "time_ms": sol_time_ms, 'timeout': True if timeouts > 0 else False})
 
             if ok > best_ok:
                 best_ok = ok
                 best_sol = sol
+                # Non aggiorniamo il sol_time qui perché potrebbe non essere definito se nessuna soluzione ha ancora passato tutti i test
 
             if fail == 0 and total > 0:
                 print(f"[SOLUTION {i}] ✅ All tests passed ({ok}/{total})")
                 n_correct += 1
                 if best_sol_time == None:
-                    best_sol_time = sol_time
+                    best_sol_time = sol_time_ms
                     best_sol = sol
-                else:
-                    if sol_time < best_sol_time:
-                        best_sol_time = sol_time
-                        best_sol = sol
+                elif sol_time_ms < best_sol_time:
+                    best_sol_time = sol_time_ms
+                    best_sol = sol
             else:
                 print(f"[SOLUTION {i}] {fail}/{total} tests failed")
                 pass
 
         except SyntaxError:
             print(f"[SOLUTION {i}] ERRORE SINTASSI: Il codice generato è malformato.")
+            continue
+        except TimeoutException:
+            # Cattura timeout durante la fase di definizione (exec iniziale)
+            print(f"[SOLUTION {i}] TIMEOUT durante la definizione.")
             continue
         except Exception as e:
             print(f"[SOLUTION {i}] Errore generico durante il setup: {e}")
