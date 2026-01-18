@@ -1,9 +1,10 @@
 from datasets import Dataset
-from unsloth import FastLanguageModel
+from transformers import AutoModelForCausalLM, AutoTokenizer
 from generate_sample import generate_sample
-from train_unsloth import finetune_model_unsloth
-from eval import test_model 
+# Importa la nuova funzione dal file modificato (assumendo l'abbia chiamato train_accelerate.py)
+from train_accelerate import finetune_model_accelerate 
 from huggingface_hub import HfApi
+import torch
 
 def _sanitize_repo_name(text: str) -> str:
     return text.replace("/", "__").replace(" ", "_")
@@ -18,15 +19,15 @@ def autophagy(
     pass_at_k: int = 1
     ):
 
-    # 0) Starting model
-    gen_model, gen_tok = FastLanguageModel.from_pretrained(
-        model_name = base_model_id,
-        max_seq_length = 4096,
-        dtype = None,
-        load_in_4bit = True,
-        device_map = "auto",
+    # 0) Starting model - Standard HF Loading
+    print(f"Loading base model: {base_model_id}")
+    gen_model = AutoModelForCausalLM.from_pretrained(
+        base_model_id,
+        device_map="auto",
+        torch_dtype=torch.float16, # o bfloat16
+        trust_remote_code=True
     )
-    FastLanguageModel.for_inference(gen_model)
+    gen_tok = AutoTokenizer.from_pretrained(base_model_id)
 
     sample = real_data_train
     base_tag = _sanitize_repo_name(base_model_id)
@@ -35,11 +36,16 @@ def autophagy(
     for t in range(g):
         print(f"=== Generation round {t+1}/{g} ===")
         print("\nStarting sample generation...")
+        
+        # NOTA: Assicurati che generate_sample accetti un modello HF standard 
+        # (La tua funzione gen.py usa model.generate(), quindi è già compatibile!)
         synth = generate_sample(sample, gen_model, gen_tok, n_solutions=n_solutions)
 
         print("\nStarting finetuning...")
         ft_dir = f"runs/gen_{t:02d}/adapters"
-        ft_model, ft_tok = finetune_model_unsloth(
+        
+        # Chiamata alla nuova funzione di training
+        ft_model, ft_tok = finetune_model_accelerate(
             dataset = synth,
             base_model_id = base_model_id,
             output_dir = ft_dir,
@@ -47,32 +53,31 @@ def autophagy(
             lr = 2e-4,
             batch_size = 1,
             grad_accum = 16,
-            max_length = 2048,
-            resume_adapter_repo=prev_adapter_repo
+            resume_adapter_repo=prev_adapter_repo # Passiamo l'adapter precedente per continuare il training
         )
 
         print("\nEnd Finetuning...")
 
-        # perf = test_model(real_data_test, ft_model, ft_tok, n_solutions=n_solutions, data_format=data_format, k=pass_at_k)
-        # print("Average Correct solutions per task: ", perf['avg_c'])
-        # print(f"[gen {t}] metrics: {perf}")
-
-        # naming
         model_id = f"stefanocarrera/autophagycode_M_{base_tag}_gen{t+1}"
         data_id  = f"stefanocarrera/autophagycode_D_{base_tag}_gen{t+1}"
 
         print("\nPushing to HuggingFace Hub...")
-        # push to hub
         api = HfApi()
         synth.push_to_hub(data_id)
-        print(f"Pushed data to {data_id}")
-        api.create_repo(model_id, repo_type="model", private=True, exist_ok=True)
+        
+        # Con PEFT, ft_model è un PeftModel, quindi save_pretrained/push_to_hub salva solo l'adapter
         ft_model.push_to_hub(model_id)
         ft_tok.push_to_hub(model_id)
-        print(f"Pushed model to {model_id}")
+        print(f"Pushed model (adapter) to {model_id}")
 
+        # Aggiorniamo i riferimenti per il prossimo giro
         prev_adapter_repo = model_id
+        
+        # Per il prossimo giro di generazione, dobbiamo assicurarci di usare il modello base + il nuovo adapter.
+        # ft_model è già (Base + Adapter), quindi possiamo usarlo direttamente per la generazione.
         gen_model, gen_tok = ft_model, ft_tok
-        sample = synth
+        
+        # Opzionale: se la memoria si riempie, potresti dover ricaricare il modello base pulito 
+        # e applicare l'adapter usando PeftModel.from_pretrained(...) all'inizio del loop.
 
     return gen_model, gen_tok
