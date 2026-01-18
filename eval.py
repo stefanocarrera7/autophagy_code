@@ -1,8 +1,8 @@
 import ast
 from statistics import mean
-from .metrics import passatk
-from .metrics import halstead_metrics, original_MI
-from .gen import generate_solutions
+from metrics import passatk
+from metrics import halstead_metrics, original_MI
+from gen import generate_solutions
 import datasets
 import time
 import json
