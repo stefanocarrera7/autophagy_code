@@ -25,7 +25,8 @@ def generate_solutions(prompt: str,
                        temperature:float = 0.2,
                        max_new_tokens:int = 150,
                        top_p = 0.9,
-                       n_solutions: int = 10):
+                       n_solutions: int = 10,
+                       verbose : bool = False):
 
     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
     outputs = model.generate(
@@ -51,9 +52,10 @@ def generate_solutions(prompt: str,
         if solutions[i]:
           exec(solutions[i], ns, ns)
       except Exception:
-        print(f"Errore nel running di una soluzione per il prompt:\n {prompt}")
+        if verbose:
+            print(f"Errore nel running di una soluzione per il prompt:\n {prompt}")
 
-      if entry_point not in ns or not callable(ns[entry_point]):
-          print(f"La funzione '{entry_point}' non é stata definita correttamente nel codice generato.")
+      if (entry_point not in ns or not callable(ns[entry_point])) and verbose:
+         print(f"La funzione '{entry_point}' non é stata definita correttamente nel codice generato.")
 
     return solutions
