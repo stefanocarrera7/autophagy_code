@@ -33,8 +33,11 @@ def autophagy(
     prev_adapter_repo = None
 
     for t in range(g):
+        print(f"=== Generation round {t+1}/{g} ===")
+        print("\nStarting sample generation...")
         synth = generate_sample(sample, gen_model, gen_tok, n_solutions=n_solutions)
 
+        print("\nStarting finetuning...")
         ft_dir = f"runs/gen_{t:02d}/adapters"
         ft_model, ft_tok = finetune_model_unsloth(
             dataset = synth,
@@ -48,6 +51,8 @@ def autophagy(
             resume_adapter_repo=prev_adapter_repo
         )
 
+        print("\nEnd Finetuning...")
+
         # perf = test_model(real_data_test, ft_model, ft_tok, n_solutions=n_solutions, data_format=data_format, k=pass_at_k)
         # print("Average Correct solutions per task: ", perf['avg_c'])
         # print(f"[gen {t}] metrics: {perf}")
@@ -56,6 +61,7 @@ def autophagy(
         model_id = f"stefanocarrera/autophagycode_M_{base_tag}_gen{t+1}"
         data_id  = f"stefanocarrera/autophagycode_D_{base_tag}_gen{t+1}"
 
+        print("\nPushing to HuggingFace Hub...")
         # push to hub
         api = HfApi()
         synth.push_to_hub(data_id)

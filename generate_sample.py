@@ -24,5 +24,8 @@ def generate_sample(data,
                         "completion": perf['best_sol'],
                         "test": data[row]['test'],
                     })
+        
+        if (row+1) % 10 == 0:
+            print(f"{row+1} / {len(data)} tasks processed.")
 
     return Dataset.from_list(sample)
