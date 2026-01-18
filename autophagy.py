@@ -48,8 +48,8 @@ def autophagy(
             resume_adapter_repo=prev_adapter_repo
         )
 
-        perf = test_model(real_data_test, ft_model, ft_tok, n_solutions=n_solutions, data_format=data_format, k=pass_at_k)
-        print("Average Correct solutions per task: ", perf['avg_c'])
+        # perf = test_model(real_data_test, ft_model, ft_tok, n_solutions=n_solutions, data_format=data_format, k=pass_at_k)
+        # print("Average Correct solutions per task: ", perf['avg_c'])
         # print(f"[gen {t}] metrics: {perf}")
 
         # naming
@@ -58,10 +58,12 @@ def autophagy(
 
         # push to hub
         api = HfApi()
-        synth.push_to_hub(data_id, private=True)
+        synth.push_to_hub(data_id)
+        print(f"Pushed data to {data_id}")
         api.create_repo(model_id, repo_type="model", private=True, exist_ok=True)
         ft_model.push_to_hub(model_id)
         ft_tok.push_to_hub(model_id)
+        print(f"Pushed model to {model_id}")
 
         prev_adapter_repo = model_id
         gen_model, gen_tok = ft_model, ft_tok

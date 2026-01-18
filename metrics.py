@@ -116,8 +116,7 @@ def cyclomatic_complexity_mccabe(code_string):
     # Se non ci sono grafi (es. codice vuoto o solo commenti), la complessità è 1
     if not visitor.graphs:
         return 1
-        
-    # --- CORREZIONE QUI SOTTO ---
+    
     # Iteriamo sui valori del dizionario visitor.graphs
     return max(graph.complexity() for graph in visitor.graphs.values())
 
@@ -149,7 +148,6 @@ def loc(source: str) -> int:
             count += 1
 
     return count
-
 
 
 def perc_of_comments(source):

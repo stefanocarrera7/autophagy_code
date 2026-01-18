@@ -188,7 +188,7 @@ def wrapper_func_time(func, run, *args):
     return min(t_runs)
 
 
-def test_solutions(solutions, entry_point, test_data, data_format="he", test_runs = 5):
+def test_solutions(solutions, entry_point, test_data, data_format="he", test_runs = 5, verbose = False):
     """
     Testa le soluzioni generate
     """
@@ -210,7 +210,8 @@ def test_solutions(solutions, entry_point, test_data, data_format="he", test_run
         n_tests = len(asserts)
 
     if n_tests == 0:
-        print(f"Nessun test trovato nella stringa:\n {test_data}")
+        if verbose:
+            print(f"Nessun test trovato nella stringa:\n {test_data}")
         return {"best_sol": best_sol,
                 "c": 0,
                 "prop_test_passed": [],
@@ -230,7 +231,8 @@ def test_solutions(solutions, entry_point, test_data, data_format="he", test_run
 
             if entry_point not in ns:
                 keys = [k for k in ns.keys() if not k.startswith('__')]
-                print(f"[SOL {i}] Errore: La funzione '{entry_point}' non è stata definita. Trovato: {keys}")
+                if verbose:
+                    print(f"[SOL {i}] Errore: La funzione '{entry_point}' non è stata definita. Trovato: {keys}")
                 continue
             
             candidate_func = ns[entry_point]
@@ -244,7 +246,8 @@ def test_solutions(solutions, entry_point, test_data, data_format="he", test_run
                 for inp, expected in zip(inputs_list[:n_tests], results_list[:n_tests]):
 
                     if timeouts >= 1:
-                        print('Too much timeouts for the same solution in the test. Skipping this solution\n')
+                        if verbose:
+                            print('Too much timeouts for the same solution in the test. Skipping this solution\n')
                         break
                     
                     try:
@@ -265,7 +268,8 @@ def test_solutions(solutions, entry_point, test_data, data_format="he", test_run
                             fail += 1
                             
                     except TimeoutException:
-                        print('TIMEOUT\n')
+                        if verbose:
+                            print('TIMEOUT\n')
                         timeouts += 1
                         fail += 1 # Aggiunto fail qui per coerenza
                     except Exception:
@@ -286,7 +290,8 @@ def test_solutions(solutions, entry_point, test_data, data_format="he", test_run
             else: # data_format == 'mbpp'
                 for a in asserts:
                     if timeouts >= 1:
-                        print('Too much timeouts for the same solution in the test. Skipping this solution\n')
+                        if verbose:
+                            print('Too much timeouts for the same solution in the test. Skipping this solution\n')
                         break
                     try:
                         signal.alarm(5)
@@ -299,7 +304,8 @@ def test_solutions(solutions, entry_point, test_data, data_format="he", test_run
                     except AssertionError:
                         fail += 1
                     except TimeoutException:
-                        print('TIMEOUT\n')
+                        if verbose:
+                            print('TIMEOUT\n')
                         timeouts += 1
                         fail += 1
                     except Exception as e:
@@ -327,7 +333,8 @@ def test_solutions(solutions, entry_point, test_data, data_format="he", test_run
                 # Non aggiorniamo il sol_time qui perché potrebbe non essere definito se nessuna soluzione ha ancora passato tutti i test
 
             if fail == 0 and total > 0:
-                print(f"[SOLUTION {i}] ✅ All tests passed ({ok}/{total})")
+                if verbose:
+                    print(f"[SOLUTION {i}] ✅ All tests passed ({ok}/{total})")
                 n_correct += 1
                 if best_sol_time == None:
                     best_sol_time = sol_time_ms
@@ -336,18 +343,22 @@ def test_solutions(solutions, entry_point, test_data, data_format="he", test_run
                     best_sol_time = sol_time_ms
                     best_sol = sol
             else:
-                print(f"[SOLUTION {i}] {fail}/{total} tests failed")
+                if verbose:
+                    print(f"[SOLUTION {i}] {fail}/{total} tests failed")
                 pass
 
         except SyntaxError:
-            print(f"[SOLUTION {i}] ERRORE SINTASSI: Il codice generato è malformato.")
+            if verbose:
+                print(f"[SOLUTION {i}] ERRORE SINTASSI: Il codice generato è malformato.")
             continue
         except TimeoutException:
             # Cattura timeout durante la fase di definizione (exec iniziale)
-            print(f"[SOLUTION {i}] TIMEOUT durante la definizione.")
+            if verbose:
+                print(f"[SOLUTION {i}] TIMEOUT durante la definizione.")
             continue
         except Exception as e:
-            print(f"[SOLUTION {i}] Errore generico durante il setup: {e}")
+            if verbose:
+                print(f"[SOLUTION {i}] Errore generico durante il setup: {e}")
             continue
 
     return {"solutions_summary": solutions_sum,
