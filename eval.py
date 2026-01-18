@@ -294,7 +294,7 @@ def test_solutions(solutions, entry_point, test_data, data_format="he", test_run
                             print('Too much timeouts for the same solution in the test. Skipping this solution\n')
                         break
                     try:
-                        signal.alarm(5)
+                        signal.alarm(3)
                         try:
                             exec(a, ns, ns)
                         finally:
