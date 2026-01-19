@@ -1,72 +1,79 @@
 import re
 import ast
 
-def clean_generation(gen_text: str, prompt_text: str) -> str:
-    """
-    Pulisce la generazione rimuovendo il prompt e i blocchi markdown.
-    """
-    # 1. Rimuoviamo il prompt se è stato ripetuto all'inizio
-    if gen_text.startswith(prompt_text):
-        gen_text = gen_text[len(prompt_text):]
-    
-    # 2. Gestione Markdown (es. ```python ... ```)
-    pattern_markdown = r"```(?:python)?\s*(.*?)```"
-    match = re.search(pattern_markdown, gen_text, re.DOTALL)
+def remove_markdown(text: str) -> str:
+    """Rimuove i backticks del markdown se presenti."""
+    pattern = r"```(?:python)?\s*(.*?)```"
+    match = re.search(pattern, text, re.DOTALL)
     if match:
         return match.group(1).strip()
-    
-    return gen_text.strip()
+    return text
 
-
-def sanitize_code(code: str) -> str:
+def extract_clean_code(prompt: str, generation: str) -> str:
     """
-    Usa l'AST per mantenere solo definizioni valide (Classi, Funzioni, Import).
-    Rimuove test, print e codice incompleto alla fine.
+    Combina prompt e generazione, parsa il codice, ed estrae solo
+    la classe Solution, le funzioni e gli import.
+    Elimina chirurgicamente test, print e codice 'morto' alla fine.
     """
-    if not code.strip():
-        return ""
-
-    # FASE 1: Gestione del codice tagliato (max tokens)
-    # Proviamo a parsare. Se fallisce (SyntaxError), togliamo l'ultima riga e riproviamo.
-    # Questo serve per il tuo 'Esempio 3' dove il loop si interrompe a metà.
-    lines = code.split('\n')
-    parsed_tree = None
     
+    # 1. Pulizia preliminare della generazione
+    generation_clean = remove_markdown(generation)
+    
+    # 2. Ricostruzione del codice completo
+    # Se il modello ha ripetuto il prompt, usiamo solo la generazione.
+    # Altrimenti concateniamo Prompt + Generazione per avere un codice sintatticamente valido.
+    if generation_clean.strip().startswith(prompt.strip()):
+        full_source = generation_clean
+    else:
+        # Aggiungiamo newline per sicurezza
+        full_source = prompt + "\n" + generation_clean
+
+    # 3. Parsing Robusto (gestione del taglio da max_tokens)
+    # Se c'è un errore di sintassi (es. codice tagliato alla fine), 
+    # togliamo l'ultima riga e riproviamo finché non compila.
+    lines = full_source.split('\n')
+    tree = None
+    
+    # Tentativi di parsing riducendo il file dal fondo
     while lines:
         try:
-            current_source = '\n'.join(lines)
-            parsed_tree = ast.parse(current_source)
-            break # Parsato con successo!
+            current_code = "\n".join(lines)
+            tree = ast.parse(current_code)
+            break # Successo!
         except SyntaxError:
-            lines.pop() # Rimuovi l'ultima riga (probabilmente incompleta) e riprova
-    
-    if parsed_tree is None:
+            lines.pop() # Rimuovi l'ultima riga problematica
+            
+    if tree is None:
         return "" # Non siamo riusciti a recuperare nulla di valido
 
-    # FASE 2: Filtraggio dei nodi (Pulizia junk)
-    # Teniamo solo Classi, Funzioni e Import. Buttiamo via le chiamate dirette (Expr).
-    valid_code_blocks = []
+    # 4. Estrazione Selettiva (Chirurgia)
+    # Teniamo solo: Classi, Funzioni, Import.
+    # Buttiamo via: Expr (print, chiamate), Assign (variabili globali di test), ecc.
+    valid_blocks = []
     
-    for node in parsed_tree.body:
-        # ast.unparse ricostruisce il codice dal nodo (Disponibile da Python 3.9+)
-        # Mantiene docstring e logica, rimuove commenti inutili e formattazione strana.
-        
-        if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.Import, ast.ImportFrom)):
-            try:
-                valid_code_blocks.append(ast.unparse(node))
-            except Exception:
-                # Fallback per versioni python vecchie o casi strani: usiamo il source originale
-                pass 
-                
-    return "\n\n".join(valid_code_blocks)
+    # Cerca prima gli import per metterli in cima
+    for node in tree.body:
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            valid_blocks.append(ast.unparse(node))
+
+    # Cerca la classe Solution o funzioni
+    for node in tree.body:
+        if isinstance(node, ast.ClassDef):
+            valid_blocks.append(ast.unparse(node))
+        elif isinstance(node, ast.FunctionDef):
+            # Accettiamo funzioni top-level solo se non sono dentro una classe Solution
+            # (utile se il prompt non chiedeva una classe ma una funzione sciolta)
+            valid_blocks.append(ast.unparse(node))
+
+    return "\n\n".join(valid_blocks)
 
 
 def generate_solutions(prompt: str,
                        entry_point:str,
                        model,
                        tokenizer,
-                       temperature:float = 0.6,
-                       max_new_tokens:int = 512, # Aumentato per evitare tagli prematuri
+                       temperature:float = 0.2,
+                       max_new_tokens:int = 512,
                        top_p = 0.9,
                        n_solutions: int = 1,
                        verbose : bool = False):
@@ -88,18 +95,13 @@ def generate_solutions(prompt: str,
     
     final_solutions = []
     for sol in raw_solutions:
-        # 1. Pulizia base (rimozione prompt/markdown)
-        cleaned_text = clean_generation(sol, prompt)
+        # Usiamo la nuova funzione di estrazione chirurgica
+        clean_code = extract_clean_code(prompt, sol)
         
-        # 2. Sanitizzazione intelligente (AST)
-        # Questa funzione rimuoverà automaticamente i test case, i print finali
-        # e riparerà i loop tagliati a metà.
-        sanitized_sol = sanitize_code(cleaned_text)
-        
-        # Se l'AST ha cancellato tutto (es. codice troppo rotto), 
-        # teniamo il cleaned_text come fallback disperato, ma di solito sanitized è meglio.
-        final_sol = sanitized_sol if sanitized_sol else cleaned_text
-        
-        final_solutions.append(final_sol)
+        # Fallback: se la pulizia fallisce (molto raro), restituiamo la raw string pulita dal markdown
+        if not clean_code.strip():
+             final_solutions.append(remove_markdown(sol))
+        else:
+             final_solutions.append(clean_code)
 
     return final_solutions
