@@ -2,7 +2,7 @@ from datasets import Dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from generate_sample import generate_sample
 # Importa la nuova funzione dal file modificato (assumendo l'abbia chiamato train_accelerate.py)
-from train_accelerate import finetune_model_accelerate 
+from train_unsloth import finetune_model_unsloth
 from huggingface_hub import HfApi
 import torch
 
@@ -14,7 +14,7 @@ def autophagy(
     real_data_train: Dataset,
     real_data_test: Dataset,
     g: int = 10,
-    n_solutions: int = 10,
+    n_solutions: int = 1,
     data_format: str = "he",
     pass_at_k: int = 1
     ):
@@ -45,7 +45,7 @@ def autophagy(
         ft_dir = f"runs/gen_{t:02d}/adapters"
         
         # Chiamata alla nuova funzione di training
-        ft_model, ft_tok = finetune_model_accelerate(
+        ft_model, ft_tok = finetune_model_unsloth(
             dataset = synth,
             base_model_id = base_model_id,
             output_dir = ft_dir,
@@ -76,8 +76,6 @@ def autophagy(
         # Per il prossimo giro di generazione, dobbiamo assicurarci di usare il modello base + il nuovo adapter.
         # ft_model è già (Base + Adapter), quindi possiamo usarlo direttamente per la generazione.
         gen_model, gen_tok = ft_model, ft_tok
-        
-        # Opzionale: se la memoria si riempie, potresti dover ricaricare il modello base pulito 
-        # e applicare l'adapter usando PeftModel.from_pretrained(...) all'inizio del loop.
+    
 
     return gen_model, gen_tok

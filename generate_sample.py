@@ -1,6 +1,5 @@
 from datasets import Dataset
 from gen import generate_solutions
-from eval import test_solutions
 
 
 def generate_sample(data,
@@ -15,13 +14,12 @@ def generate_sample(data,
         prompt = data[row]['prompt']
 
         solutions = generate_solutions(prompt, entry, model, tokenizer, n_solutions=n_solutions)
-        perf = test_solutions(solutions, data[row]['test'], entry)
 
         sample.append({
                         "task_id": data[row]["task_id"],
                         "entry_point": entry,
                         "prompt": prompt,
-                        "completion": perf['best_sol'],
+                        "completion": solutions[0],
                         "test": data[row]['test'],
                     })
         

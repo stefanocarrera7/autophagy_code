@@ -98,7 +98,7 @@ def halstead_metrics(source):
 
 
 import ast
-from autophagy_code.mccabe import PathGraphingAstVisitor
+from mccabe import PathGraphingAstVisitor
 
 def cyclomatic_complexity_mccabe(code_string):
     """
