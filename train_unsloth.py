@@ -1,10 +1,8 @@
-from datasets import Dataset
 from unsloth import FastLanguageModel, UnslothTrainer, UnslothTrainingArguments
+from datasets import Dataset
 import torch
 from typing import Dict, Any
 from peft import PeftModel
-
-
 
 def finetune_model_unsloth(
     dataset: Dataset,
@@ -15,7 +13,7 @@ def finetune_model_unsloth(
     batch_size: int = 1,
     grad_accum: int = 16,
     max_length: int = 2048,
-    max_seq_length: int = 4096,     # per il modello
+    max_seq_length: int = 4096,
     lora_r: int = 16,
     lora_alpha: int = 32,
     lora_dropout: float = 0.05,
@@ -23,13 +21,8 @@ def finetune_model_unsloth(
     pack_to_max: bool = True,
     resume_adapter_repo: str | None = None
     ) -> tuple[Any, Any]:
-    """
-    Fine-tuning QLoRA con Unsloth per code generation.
-    dataset: HF Dataset con campi 'prompt' e 'completion'
-    Ritorna: (model, tokenizer) già pronti per inference.
-    """
-  
-    # 1) Prepara campo testo unico (istruito a produrre "completion" dato il "prompt")
+    
+    # ... (Il resto della preparazione del dataset rimane uguale) ...
     def join_prompt_completion(ex):
         return {"text": f"### Prompt:\n{ex['prompt']}\n\n### Completion:\n{ex['completion']}\n"}
     ds = dataset.map(join_prompt_completion)
@@ -38,16 +31,16 @@ def finetune_model_unsloth(
     split = ds.train_test_split(test_size=0.05, seed=42)
     train_ds, eval_ds = split["train"], split["test"]
 
-  # 2) Modello + tokenizer Unsloth (4-bit pronto)
+    # 2) Modello + tokenizer Unsloth
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name = base_model_id,
         max_seq_length = max_seq_length,
-        dtype = None,           # auto fp16/bf16
+        dtype = None,
         load_in_4bit = True,
         device_map = "auto",
     )
 
-  # 3) PEFT LoRA via helper Unsloth
+    # 3) PEFT LoRA via helper Unsloth
     model = FastLanguageModel.get_peft_model(
         model,
         r = lora_r,
@@ -57,23 +50,24 @@ def finetune_model_unsloth(
         use_gradient_checkpointing = True,
         random_state = 42,
         bias = "none",
-        task_type = "CAUSAL_LM",
+        # Rimosso task_type="CAUSAL_LM" per evitare il TypeError
     )
     
-        # Resume da adapter precedente se fornito
     if resume_adapter_repo:
         model = PeftModel.from_pretrained(model, resume_adapter_repo)
 
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-  # 4) Tokenizzazione
+    # ... (Il resto della funzione rimane uguale) ...
+    
+    # 4) Tokenizzazione
     def tok_fn(batch):
         return tokenizer(batch["text"], truncation=True, max_length=max_length)
     train_tok = train_ds.map(tok_fn, batched=True, remove_columns=["text"])
     eval_tok  = eval_ds.map(tok_fn,  batched=True, remove_columns=["text"])
 
-  # 5) Argomenti Trainer Unsloth
+    # 5) Argomenti Trainer Unsloth
     args = UnslothTrainingArguments(
         output_dir = output_dir,
         per_device_train_batch_size = batch_size,
@@ -88,28 +82,26 @@ def finetune_model_unsloth(
         save_total_limit = 2,
         bf16 = torch.cuda.is_bf16_supported(),
         fp16 = not torch.cuda.is_bf16_supported(),
-        optim = "paged_adamw_8bit",          # tipico setup 4-bit
+        optim = "paged_adamw_8bit",
         lr_scheduler_type = "cosine",
         warmup_ratio = 0.03,
         report_to = "none",
     )
 
-  # 6) Trainer Unsloth (packing opzionale)
+    # 6) Trainer Unsloth
     trainer = UnslothTrainer(
         model = model,
         args = args,
         train_dataset = train_tok,
         eval_dataset = eval_tok,
         tokenizer = tokenizer,
-        packing = pack_to_max,              # True = concatena campioni per riempire i blocchi
+        packing = pack_to_max,
     )
 
     trainer.train()
 
-    # 7) Salvataggi adapter + tokenizer
     model.save_pretrained(output_dir)
     tokenizer.save_pretrained(output_dir)
 
-    # 8) Pronto per inference
-    FastLanguageModel.for_inference(model)  # abilita kv-cache ottimizzata
+    FastLanguageModel.for_inference(model)
     return model, tokenizer
