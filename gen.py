@@ -11,58 +11,63 @@ def remove_markdown(text: str) -> str:
 
 def extract_clean_code(prompt: str, generation: str) -> str:
     """
-    Combina prompt e generazione, parsa il codice, ed estrae solo
-    la classe Solution, le funzioni e gli import.
-    Elimina chirurgicamente test, print e codice 'morto' alla fine.
+    Combina prompt e generazione, parsa il codice, ed estrae
+    solo la PRIMA class Solution valida e gli import.
+    Ignora duplicati successivi della stessa classe.
     """
     
-    # 1. Pulizia preliminare della generazione
+    # 1. Pulizia preliminare
     generation_clean = remove_markdown(generation)
     
     # 2. Ricostruzione del codice completo
-    # Se il modello ha ripetuto il prompt, usiamo solo la generazione.
-    # Altrimenti concateniamo Prompt + Generazione per avere un codice sintatticamente valido.
     if generation_clean.strip().startswith(prompt.strip()):
         full_source = generation_clean
     else:
-        # Aggiungiamo newline per sicurezza
         full_source = prompt + "\n" + generation_clean
 
     # 3. Parsing Robusto (gestione del taglio da max_tokens)
-    # Se c'è un errore di sintassi (es. codice tagliato alla fine), 
-    # togliamo l'ultima riga e riproviamo finché non compila.
     lines = full_source.split('\n')
     tree = None
     
-    # Tentativi di parsing riducendo il file dal fondo
     while lines:
         try:
             current_code = "\n".join(lines)
             tree = ast.parse(current_code)
-            break # Successo!
+            break 
         except SyntaxError:
-            lines.pop() # Rimuovi l'ultima riga problematica
+            lines.pop() 
             
     if tree is None:
-        return "" # Non siamo riusciti a recuperare nulla di valido
+        return "" 
 
-    # 4. Estrazione Selettiva (Chirurgia)
-    # Teniamo solo: Classi, Funzioni, Import.
-    # Buttiamo via: Expr (print, chiamate), Assign (variabili globali di test), ecc.
+    # 4. Estrazione Selettiva (Logica "First Match")
     valid_blocks = []
+    found_solution_class = False # Flag per tracciare se abbiamo già preso la classe
     
-    # Cerca prima gli import per metterli in cima
+    # -- A. Prima passata per gli IMPORT (li vogliamo sempre in cima) --
     for node in tree.body:
         if isinstance(node, (ast.Import, ast.ImportFrom)):
             valid_blocks.append(ast.unparse(node))
 
-    # Cerca la classe Solution o funzioni
+    # -- B. Seconda passata per CLASSI e FUNZIONI --
     for node in tree.body:
+        # Se è una Classe
         if isinstance(node, ast.ClassDef):
-            valid_blocks.append(ast.unparse(node))
+            # Se è la classe "Solution"
+            if node.name == "Solution":
+                if found_solution_class:
+                    continue # SKIP: Ne abbiamo già trovata una, questa è un duplicato!
+                else:
+                    valid_blocks.append(ast.unparse(node))
+                    found_solution_class = True
+            else:
+                # Se è una classe helper (es. "ListNode", "TreeNode"), la teniamo
+                valid_blocks.append(ast.unparse(node))
+        
+        # Se è una Funzione top-level (non dentro una classe)
         elif isinstance(node, ast.FunctionDef):
-            # Accettiamo funzioni top-level solo se non sono dentro una classe Solution
-            # (utile se il prompt non chiedeva una classe ma una funzione sciolta)
+            # Le teniamo, a meno che non siano test (spesso i test hanno nomi come main o test_...)
+            # Per sicurezza teniamo tutto ciò che è funzione se il prompt non chiedeva esplicitamente classi
             valid_blocks.append(ast.unparse(node))
 
     return "\n\n".join(valid_blocks)
@@ -95,10 +100,8 @@ def generate_solutions(prompt: str,
     
     final_solutions = []
     for sol in raw_solutions:
-        # Usiamo la nuova funzione di estrazione chirurgica
         clean_code = extract_clean_code(prompt, sol)
         
-        # Fallback: se la pulizia fallisce (molto raro), restituiamo la raw string pulita dal markdown
         if not clean_code.strip():
              final_solutions.append(remove_markdown(sol))
         else:
