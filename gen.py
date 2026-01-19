@@ -45,7 +45,7 @@ def generate_solutions(prompt: str,
     # segment = prepend_prompt_imports(segment, prompt)
 
     for i in range(len(solutions)):
-      solutions[i] = prepend_prompt_imports(extract_exec_strict(solutions[i], prompt), prompt)
+      # solutions[i] = prepend_prompt_imports(extract_exec_strict(solutions[i], prompt), prompt)
 
       ns = {}
       try:
