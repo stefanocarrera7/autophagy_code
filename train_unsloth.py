@@ -8,7 +8,7 @@ def finetune_model(
     dataset: Dataset,
     base_model_id: str,
     output_dir: str = "unsloth-code-ft",
-    model_type: str = "llama",  # <--- NUOVO PARAMETRO: 'llama' o 'qwen'
+    model_type: str = "llama",
     num_train_epochs: int = 2,
     lr: float = 2e-4,
     batch_size: int = 2,
@@ -18,7 +18,7 @@ def finetune_model(
     lora_r: int = 16,
     lora_alpha: int = 16,
     lora_dropout: float = 0,
-    target_modules: Union[List[str], str] = "all-linear",
+    target_modules = ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
     pack_to_max: bool = True,
     resume_adapter_repo: str | None = None
     ) -> tuple[Any, Any]:
@@ -40,7 +40,7 @@ def finetune_model(
     if model_type.lower() == "qwen" or tokenizer.pad_token is None:
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
-    
+
     # 2) Configurazione PEFT
     model = FastLanguageModel.get_peft_model(
         model,
