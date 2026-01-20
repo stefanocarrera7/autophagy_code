@@ -2,7 +2,7 @@ from datasets import Dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from generate_sample import generate_sample
 # Importa la nuova funzione dal file modificato (assumendo l'abbia chiamato train_accelerate.py)
-from train_unsloth import finetune_model_unsloth
+from train_unsloth import finetune_model
 from huggingface_hub import HfApi
 import torch
 
@@ -12,11 +12,8 @@ def _sanitize_repo_name(text: str) -> str:
 def autophagy(
     base_model_id: str,
     real_data_train: Dataset,
-    real_data_test: Dataset,
     g: int = 10,
     n_solutions: int = 1,
-    data_format: str = "he",
-    pass_at_k: int = 1
     ):
 
     # 0) Starting model - Standard HF Loading
@@ -45,10 +42,11 @@ def autophagy(
         ft_dir = f"runs/gen_{t:02d}/adapters"
         
         # Chiamata alla nuova funzione di training
-        ft_model, ft_tok = finetune_model_unsloth(
+        ft_model, ft_tok = finetune_model(
             dataset = synth,
             base_model_id = base_model_id,
             output_dir = ft_dir,
+            model_type="qwen",  # Specifica il tipo di modello per il templete del prompt
             num_train_epochs = 2,
             lr = 2e-4,
             batch_size = 1,

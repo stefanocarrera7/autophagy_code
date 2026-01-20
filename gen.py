@@ -141,11 +141,10 @@ def generate_solutions(prompt: str,
                        entry_point:str,
                        model,
                        tokenizer,
-                       temperature:float = 0.2,
+                       temperature:float = 0.6,
                        max_new_tokens:int = 512,
                        top_p = 0.9,
-                       n_solutions: int = 1,
-                       verbose : bool = False):
+                       n_solutions: int = 1):
 
     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
     
