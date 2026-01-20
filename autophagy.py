@@ -12,6 +12,7 @@ def _sanitize_repo_name(text: str) -> str:
 def autophagy(
     base_model_id: str,
     real_data_train: Dataset,
+    model_type: str = "llama", # 'llama' o 'qwen'
     g: int = 10,
     n_solutions: int = 1,
     ):
@@ -34,8 +35,6 @@ def autophagy(
         print(f"=== Generation round {t+1}/{g} ===")
         print("\nStarting sample generation...")
         
-        # NOTA: Assicurati che generate_sample accetti un modello HF standard 
-        # (La tua funzione gen.py usa model.generate(), quindi è già compatibile!)
         synth = generate_sample(sample, gen_model, gen_tok, n_solutions=n_solutions)
 
         print("\nStarting finetuning...")
@@ -46,7 +45,7 @@ def autophagy(
             dataset = synth,
             base_model_id = base_model_id,
             output_dir = ft_dir,
-            model_type="qwen",  # Specifica il tipo di modello per il templete del prompt
+            model_type=model_type,  # 'llama' o 'qwen,  # Specifica il tipo di modello per il templete del prompt
             num_train_epochs = 2,
             lr = 2e-4,
             batch_size = 1,
