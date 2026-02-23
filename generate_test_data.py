@@ -2,11 +2,10 @@ from generate_sample import generate_sample
 import torch
 import gc
 from datasets import load_dataset
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from unsloth import FastLanguageModel # <--- Importazione Unsloth
 from huggingface_hub import login
 
-# 1. Autenticazione (Assicurati di avere il token impostato come variabile d'ambiente 
-# o passalo direttamente qui se non usi huggingface-cli login)
+# 1. Autenticazione (Usa un NUOVO token con permessi di WRITE)
 login("xxxxx") 
 
 # 2. Carichiamo HumanEval una volta sola
@@ -15,35 +14,37 @@ base_data = load_dataset("openai_humaneval", split="test")
 
 num_generations = 10
 n_sol_per_prompt = 1
+max_seq_length = 2048 # Parametro richiesto da Unsloth
 
 HF_USERNAME = "stefanocarrera"
-# Il nome base dei tuoi modelli fine-tunati (es. MIO_MODELLO_gen1, gen2, ecc.)
-MODEL_BASE_NAME = "stefanocarrera/autophagycode_M_meta-llama__Meta-Llama-3.1-8B-Instruct_gen10_TEST" 
 DATASET_BASE_NAME = "autophagycode_D_HE_meta-llama__Meta-Llama-3.1-8B-Instruct_gen"
 
-for g in range(num_generations+1):
+for g in range(num_generations + 1):
     print(f"\n{'='*50}")
     print(f"   AVVIO GENERAZIONE E VALUTAZIONE [{g}]")
     print(f"{'='*50}")
 
     # --- LOGICA DI SELEZIONE DEL MODELLO ---
     if g == 0:
-        # Generazione 1: Modello originale di Meta
+        # Generazione 0: Modello originale di Meta
         model_repo = "meta-llama/Meta-Llama-3.1-8B-Instruct"
     else:
         model_repo = f"stefanocarrera/autophagycode_M_meta-llama__Meta-Llama-3.1-8B-Instruct_gen{g}_TEST"
 
     dataset_repo = f"{HF_USERNAME}/{DATASET_BASE_NAME}{g}_TEST"
 
-    print(f"Scaricamento e caricamento modello: {model_repo}")
+    print(f"Scaricamento e caricamento modello tramite Unsloth: {model_repo}")
     
-    # 3. Caricamento del modello e tokenizer
-    tokenizer = AutoTokenizer.from_pretrained(model_repo)
-    model = AutoModelForCausalLM.from_pretrained(
-        model_repo,
-        device_map="auto",
-        torch_dtype=torch.float16
+    # 3. Caricamento del modello e tokenizer con Unsloth
+    model, tokenizer = FastLanguageModel.from_pretrained(
+        model_name = model_repo,
+        max_seq_length = max_seq_length,
+        dtype = torch.float16, # <-- FORZATO per la tua Tesla T4 (Turing non supporta bfloat16)
+        load_in_4bit = True,   # <-- FONDAMENTALE per non superare i 15 GB di VRAM
     )
+
+    # Abilita l'inferenza nativa 2x più veloce di Unsloth
+    FastLanguageModel.for_inference(model)
 
     # 4. Generazione del dataset
     print(f"Generazione delle soluzioni in corso per la gen {g}...")

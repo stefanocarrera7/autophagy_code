@@ -73,8 +73,11 @@ def test_solutions(solutions, entry_point, test_data, data_format="he", test_run
         results_list = td.get("results", [])
         n_tests = min(len(inputs_list), len(results_list))
     else:
-        # Per MBPP puliamo le righe vuote
-        asserts = [line.strip() for line in test_data.split("\n") if line.strip()]
+        asserts = [
+            line.strip() 
+            for line in test_data.split("\n") 
+            if line.strip().startswith("assert ")
+        ]
         n_tests = len(asserts)
 
     if n_tests == 0:
@@ -161,7 +164,7 @@ def test_solutions(solutions, entry_point, test_data, data_format="he", test_run
                         except:
                             continue
 
-            else: # data_format == 'mbpp'
+            elif data_format == 'mbpp':
                 for a in asserts:
                     if timeouts >= 1: break
                     try:
@@ -182,6 +185,24 @@ def test_solutions(solutions, entry_point, test_data, data_format="he", test_run
                             sol_time += t_run
                         except:
                             continue
+            
+            else: # data_format == 'human_eval NON PLUS'
+                
+                # RISOLUZIONE DEL BUG: Mappiamo la parola 'candidate' alla funzione da testare
+                ns['candidate'] = candidate_func 
+                
+                for a in asserts:
+                    if timeouts >= 1: break
+                    try:
+                        signal.alarm(3)
+                        try:
+                            exec(a, ns, ns)
+                        finally:
+                            signal.alarm(0)
+                        ok += 1
+                    except Exception as e:
+                        fail += 1
+                        # if verbose: print(f"Test fallito: {a} | Errore: {e}")
 
             # --- FASE 3: STATISTICHE ---
             sol_time_ms = sol_time * 1000 if sol_time is not False else None
