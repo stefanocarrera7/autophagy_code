@@ -7,9 +7,12 @@ login(token="xxxx")
 # 1. Modello di partenza
 base_models = {
     'llama': "unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit",
-    'qwen' : 'unsloth/Qwen2.5-Coder-7B-Instruct-bnb-4bit'
+    'qwen' : 'unsloth/Qwen2.5-Coder-7B-Instruct-bnb-4bit',
+    "qwen_06b" : "unsloth/Qwen3-0.6B-Base-unsloth-bnb-4bit",
+    "qwen_4b" : "unsloth/Qwen3-4B-Base-unsloth-bnb-4bit",
+    "qwen_8b" : "unsloth/Qwen3-8B-Base-unsloth-bnb-4bit",
 }
-base_model_id = base_models.get('qwen')
+base_model_id = base_models.get('qwen_06b')
 
 # Funzione filtro
 def is_valid_test(example):
@@ -27,6 +30,7 @@ autophagy.autophagy(
     base_model_id=base_model_id,
     real_data_train=real_data,
     model_type = 'qwen',
-    g=10,        
-    n_solutions=1
+    g=5,        
+    n_solutions=1,
+    lr=1e-4
 )

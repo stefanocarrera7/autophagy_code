@@ -10,7 +10,7 @@ def finetune_model(
     output_dir: str = "unsloth-code-ft",
     model_type: str = "llama",
     num_train_epochs: int = 2,
-    lr: float = 2e-4,
+    lr: float = 1e-4,
     batch_size: int = 2,
     grad_accum: int = 8,
     max_length: int = 2048,
@@ -24,10 +24,11 @@ def finetune_model(
     ) -> tuple[Any, Any]:
     """
     Fine-tuning universale con gestione dinamica del template di prompt.
+    Supporta il training incrementale caricando l'adapter della generazione precedente.
     model_type: accetta 'llama' (default) o 'qwen'.
     """
   
-    # 1) Caricamento Modello
+    # 1) Caricamento Modello Base
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name = base_model_id,
         max_seq_length = max_seq_length,
@@ -41,23 +42,30 @@ def finetune_model(
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
 
-    # 2) Configurazione PEFT
-    model = FastLanguageModel.get_peft_model(
-        model,
-        r = lora_r,
-        lora_alpha = lora_alpha,
-        lora_dropout = lora_dropout,
-        target_modules = target_modules,
-        use_gradient_checkpointing = "unsloth",
-        random_state = 42,
-        bias = "none",
-        use_rslora = False,
-        loftq_config = None,
-    )
-    
+    # 2) Configurazione PEFT (Modificata per la tua Tesi)
     if resume_adapter_repo:
-        print(f"Loading adapter from: {resume_adapter_repo}")
-        model = PeftModel.from_pretrained(model, resume_adapter_repo)
+        print(f"🔄 Riprendo l'addestramento dall'adapter: {resume_adapter_repo}")
+        # Carichiamo l'adapter sopra il modello base e abilitiamo esplicitamente l'addestramento sui pesi LoRA
+        model = PeftModel.from_pretrained(model, resume_adapter_repo, is_trainable=True)
+        
+        # Riattiviamo il gradient checkpointing per risparmiare VRAM, che potrebbe perdersi col caricamento diretto di PeftModel
+        if hasattr(model, "enable_input_require_grads"):
+            model.enable_input_require_grads()
+        model.gradient_checkpointing_enable()
+    else:
+        print("🆕 Inizializzazione di un nuovo adapter LoRA...")
+        model = FastLanguageModel.get_peft_model(
+            model,
+            r = lora_r,
+            lora_alpha = lora_alpha,
+            lora_dropout = lora_dropout,
+            target_modules = target_modules,
+            use_gradient_checkpointing = "unsloth",
+            random_state = 42,
+            bias = "none",
+            use_rslora = False,
+            loftq_config = None,
+        )
 
     # 3) Preparazione Dati con Template Dinamico
     EOS_TOKEN = tokenizer.eos_token 
@@ -68,9 +76,6 @@ def finetune_model(
 
         if model_type.lower() == "qwen":
             # --- FORMATO CHATML (Ideale per Qwen) ---
-            # Qwen usa token speciali come <|im_start|> e <|im_end|>
-            # Nota: Unsloth gestisce solitamente la tokenizzazione di questi tag se il tokenizer è corretto,
-            # ma aggiungiamo EOS_TOKEN alla fine per sicurezza.
             text = (
                 f"<|im_start|>user\n{prompt_text}<|im_end|>\n"
                 f"<|im_start|>assistant\n{completion_text}<|im_end|>"
@@ -78,7 +83,6 @@ def finetune_model(
             
         else:
             # --- FORMATO ALPACA/STANDARD (Ideale per Llama) ---
-            # È il formato classico che stavi usando
             text = (
                 f"### Prompt:\n{prompt_text}\n\n"
                 f"### Completion:\n{completion_text}"
