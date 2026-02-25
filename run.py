@@ -2,7 +2,7 @@ from huggingface_hub import login
 from datasets import load_dataset
 import autophagy
 
-login(token="xxxx")
+login(token="xxx")
 
 # Modelli
 base_models = {

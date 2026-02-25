@@ -6,18 +6,18 @@ from unsloth import FastLanguageModel # <--- Importazione Unsloth
 from huggingface_hub import login
 
 # 1. Autenticazione (Usa un NUOVO token con permessi di WRITE)
-login("xxxxx") 
+login("xxxx") 
 
 # 2. Carichiamo HumanEval una volta sola
 print("Caricamento dataset base (HumanEval)...")
 base_data = load_dataset("openai_humaneval", split="test")
 
-num_generations = 10
+num_generations = 5
 n_sol_per_prompt = 1
-max_seq_length = 2048 # Parametro richiesto da Unsloth
+max_seq_length = 1024 # Parametro richiesto da Unsloth
 
 HF_USERNAME = "stefanocarrera"
-DATASET_BASE_NAME = "autophagycode_D_HE_meta-llama__Meta-Llama-3.1-8B-Instruct_gen"
+DATASET_BASE_NAME = "autophagycode_D_HE_unsloth__Qwen3-4B-Base-unsloth-bnb-4bit_lr0.0001_chunck138_gen"
 
 for g in range(num_generations + 1):
     print(f"\n{'='*50}")
@@ -27,11 +27,11 @@ for g in range(num_generations + 1):
     # --- LOGICA DI SELEZIONE DEL MODELLO ---
     if g == 0:
         # Generazione 0: Modello originale di Meta
-        model_repo = "meta-llama/Meta-Llama-3.1-8B-Instruct"
+        model_repo = "unsloth/Qwen3-4B-Base-unsloth-bnb-4bit"
     else:
-        model_repo = f"stefanocarrera/autophagycode_M_meta-llama__Meta-Llama-3.1-8B-Instruct_gen{g}_TEST"
+        model_repo = f"stefanocarrera/autophagycode_M_unsloth__Qwen3-4B-Base-unsloth-bnb-4bit_lr0.0001_gen{g}"
 
-    dataset_repo = f"{HF_USERNAME}/{DATASET_BASE_NAME}{g}_TEST"
+    dataset_repo = f"{HF_USERNAME}/{DATASET_BASE_NAME}{g+1}"
 
     print(f"Scaricamento e caricamento modello tramite Unsloth: {model_repo}")
     

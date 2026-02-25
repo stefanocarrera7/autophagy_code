@@ -20,14 +20,14 @@ login("xxxxx")
 halstaed_avg = []
 stats_per_gen = []
 
-for g in range(11):
+for g in range(5):
     print(f'\n======================================')
     print(f'    EVALUATING GENERATION [{g}]')
     print(f'======================================')
     
     try:
         # Carica il dataset della generazione corrente
-        df = pd.read_parquet(f"hf://datasets/stefanocarrera/autophagycode_D_HE_meta-llama__Meta-Llama-3.1-8B-Instruct_gen{g}_TEST/data/train-00000-of-00001.parquet")
+        df = pd.read_parquet(f"hf://datasets/stefanocarrera/autophagycode_D_unsloth__Qwen3-0.6B-Base-unsloth-bnb-4bit_lr0.0001_gen{g+1}/data/train-00000-of-00001.parquet")
     except Exception as e:
         print(f"Errore nel download del gen{g}: {e}")
         continue
