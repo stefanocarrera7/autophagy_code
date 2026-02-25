@@ -30,12 +30,22 @@ def autophagy(
     sample = real_data_train
     base_tag = _sanitize_repo_name(base_model_id)
     prev_adapter_repo = None
+    chunk_size = 138
 
     for t in range(g):
         print(f"=== Generation round {t+1}/{g} ===")
+
+        # 1. Calcolo degli indici per il subset di questo round
+        start_idx = t * chunk_size
+        # Se è l'ultimo giro, prendiamo tutto quello che resta per non perdere dati
+        end_idx = (t + 1) * chunk_size
+        
+        # 2. Estrazione del subset
+        current_subset = sample.select(range(start_idx, end_idx))
+        
         print("\nStarting sample generation...")
         
-        synth = generate_sample(sample, gen_model, gen_tok, n_solutions=n_solutions)
+        synth = generate_sample(current_subset, gen_model, gen_tok, n_solutions=n_solutions)
 
         print("\nStarting finetuning...")
         ft_dir = f"runs/gen_{t:02d}/adapters"

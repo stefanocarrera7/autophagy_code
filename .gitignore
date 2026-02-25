@@ -2,3 +2,4 @@ __pycache__/
 unsloth_venv/
 unsloth_compiled_cache/
 runs/
+.env

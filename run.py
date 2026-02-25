@@ -4,7 +4,7 @@ import autophagy
 
 login(token="xxxx")
 
-# 1. Modello di partenza
+# Modelli
 base_models = {
     'llama': "unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit",
     'qwen' : 'unsloth/Qwen2.5-Coder-7B-Instruct-bnb-4bit',
@@ -12,7 +12,6 @@ base_models = {
     "qwen_4b" : "unsloth/Qwen3-4B-Base-unsloth-bnb-4bit",
     "qwen_8b" : "unsloth/Qwen3-8B-Base-unsloth-bnb-4bit",
 }
-base_model_id = base_models.get('qwen_06b')
 
 # Funzione filtro
 def is_valid_test(example):
@@ -26,6 +25,7 @@ real_data = real_data.filter(is_valid_test)
 print(f"Dataset filtrato: {len(real_data)} righe")
 
 # autofagia
+base_model_id = base_models.get('qwen_8b')
 autophagy.autophagy(
     base_model_id=base_model_id,
     real_data_train=real_data,
