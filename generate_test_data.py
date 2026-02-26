@@ -17,7 +17,7 @@ n_sol_per_prompt = 1
 max_seq_length = 1024 # Parametro richiesto da Unsloth
 
 HF_USERNAME = "stefanocarrera"
-DATASET_BASE_NAME = "autophagycode_D_HE_unsloth__Qwen3-4B-Base-unsloth-bnb-4bit_lr0.0001_chunck138_gen"
+DATASET_BASE_NAME = "autophagycode_D_HE_unsloth__Qwen3-8B-Base-unsloth-bnb-4bit_lr0.0001_chunck138_gen"
 
 for g in range(num_generations + 1):
     print(f"\n{'='*50}")
@@ -27,9 +27,9 @@ for g in range(num_generations + 1):
     # --- LOGICA DI SELEZIONE DEL MODELLO ---
     if g == 0:
         # Generazione 0: Modello originale di Meta
-        model_repo = "unsloth/Qwen3-4B-Base-unsloth-bnb-4bit"
+        model_repo = "unsloth/Qwen3-8B-Base-unsloth-bnb-4bit"
     else:
-        model_repo = f"stefanocarrera/autophagycode_M_unsloth__Qwen3-4B-Base-unsloth-bnb-4bit_lr0.0001_gen{g}"
+        model_repo = f"stefanocarrera/autophagycode_M_unsloth__Qwen3-8B-Base-unsloth-bnb-4bit_lr0.0001_gen{g}"
 
     dataset_repo = f"{HF_USERNAME}/{DATASET_BASE_NAME}{g+1}"
 
