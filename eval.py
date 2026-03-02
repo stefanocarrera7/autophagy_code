@@ -54,7 +54,7 @@ def wrapper_func_time(func, run, *args):
     t_runs = timeit.repeat(frozen_func, repeat=run, number=1)
     return min(t_runs)
 
-def test_solutions(solutions, entry_point, test_data, data_format="he", test_runs=5, verbose=False):
+def test_solutions(solutions, entry_point, test_cell, data_format="he", test_runs=5, verbose=False):
     """
     Testa le soluzioni generate gestendo sia funzioni globali che metodi di classe Solution.
     """
@@ -68,21 +68,21 @@ def test_solutions(solutions, entry_point, test_data, data_format="he", test_run
 
     # Preparazione dei dati di test
     if data_format == 'he':
-        td = extract_inputs_results(test_data)
+        td = extract_inputs_results(test_cell)
         inputs_list = td.get("inputs", [])
         results_list = td.get("results", [])
         n_tests = min(len(inputs_list), len(results_list))
     else:
         asserts = [
             line.strip() 
-            for line in test_data.split("\n") 
+            for line in test_cell.split("\n") 
             if line.strip().startswith("assert ")
         ]
         n_tests = len(asserts)
 
     if n_tests == 0:
         if verbose:
-            print(f"Nessun test trovato nella stringa:\n {test_data}")
+            print(f"Nessun test trovato nella stringa:\n {test_cell}")
         return {"best_sol": best_sol, "c": 0, "prop_test_passed": [], "running_time": []}
 
     for i, sol in enumerate(solutions):
@@ -132,37 +132,33 @@ def test_solutions(solutions, entry_point, test_data, data_format="he", test_run
             sol_time = False
             
             if data_format == 'he':
-                for inp, expected in zip(inputs_list[:n_tests], results_list[:n_tests]):
-                    if timeouts >= 1: break
+                exec(test_cell, ns, ns)  # Definire la funione check()
+                check_func = ns['check']
+                try:
+                    signal.alarm(5)
                     try:
-                        signal.alarm(5)
-                        try:
-                            if isinstance(inp, (list, tuple)):
-                                out = candidate_func(*inp)
-                            else:
-                                out = candidate_func(inp)
-                        finally:
-                            signal.alarm(0)
-                        if out == expected: ok += 1
-                        else: fail += 1
-                    except TimeoutException:
-                        timeouts += 1
-                        fail += 1
-                    except:
-                        fail += 1
+                        ratio_he = check_func(candidate_func)
+                    finally:
+                        signal.alarm(0)
 
-                if fail == 0:
+                except TimeoutException:
+                    timeouts += 1
+                    fail = 1
+                except Exception as e:
+                    # Cattura qualsiasi errore imprevisto non gestito internamente da check()
+                    if verbose:
+                        print(f"[SOLUTION {i}] Errore durante l'esecuzione di check(): {e}")
+                    fail = 1
+
+                # --- MISURAZIONE DEL TEMPO ---
+                if ratio_he >= 0.999:
                     sol_time = 0
-                    sample_size = min(20, n_tests)
-                    for inp, expected in zip(inputs_list[:sample_size], results_list[:sample_size]):
-                        try:
-                            if isinstance(inp, (list, tuple)):
-                                t_run = wrapper_func_time(candidate_func, test_runs, *inp)
-                            else:
-                                t_run = wrapper_func_time(candidate_func, test_runs, inp)
-                            sol_time += t_run
-                        except:
-                            continue
+                    try:
+                        # Poiché gli input sono "nascosti" dentro check(), misuriamo il tempo di esecuzione dell'intera suite di test.
+                        t_run = wrapper_func_time(check_func, test_runs, candidate_func)
+                        sol_time = t_run
+                    except Exception:
+                        pass
 
             elif data_format == 'mbpp':
                 for a in asserts:
@@ -206,15 +202,21 @@ def test_solutions(solutions, entry_point, test_data, data_format="he", test_run
 
             # --- FASE 3: STATISTICHE ---
             sol_time_ms = sol_time * 1000 if sol_time is not False else None
-            total = ok + fail
-            ratio = ok / total if total > 0 else 0
+            if data_format == 'he':
+                ok = ratio_he
+                fail = 1 - ratio_he
+                total = 1
+                ratio = ratio_he
+            else:
+                total = ok + fail
+                ratio = ok / total if total > 0 else 0
             solutions_sum.append({"sol": sol, "ok": ok, "fail": fail, "ratio": ratio, "time_ms": sol_time_ms})
 
             if ok > best_ok:
                 best_ok = ok
                 best_sol = sol
 
-            if fail == 0 and total > 0:
+            if fail <= 0.001 and total > 0:
                 if verbose: print(f"[SOLUTION {i}] OK: All tests passed ({ok}/{total})")
                 n_correct += 1
                 if best_sol_time is None or (sol_time_ms is not None and sol_time_ms < best_sol_time):
@@ -237,20 +239,20 @@ def test_solutions(solutions, entry_point, test_data, data_format="he", test_run
         "errors": errors
     }
 
-def test_model(test_split, model, tokenizer, n_solutions, save_path, data_format="he", k=1, start_index=0, end_index=146):
-    for row in range(start_index, end_index):
-        ex = test_split[row]
-        solutions = generate_solutions(ex['prompt'], ex['entry_point'], model, tokenizer, n_solutions=n_solutions)
-        perf = test_solutions(solutions, ex['entry_point'], ex['test'], data_format=data_format)
-        res = {
-            "task_id": ex['task_id'],
-            "best_solution": perf['best_sol'],
-            "correct_ratio": perf['c']/n_solutions,
-            "run_time": perf['best_sol_time_ms'],
-            "best_solution_halstead": halstead_metrics(perf['best_sol']),
-            "pass_at_k": passatk(n_solutions, perf['c'], k),
-            "MI": original_MI(perf['best_sol'])
-        }
-        with open(save_path, "a") as f:
-            f.write(json.dumps(res) + "\n")
-    print(f"Risultati salvati in {save_path}")
+# def test_model(test_split, model, tokenizer, n_solutions, save_path, data_format="he", k=1, start_index=0, end_index=146):
+#     for row in range(start_index, end_index):
+#         ex = test_split[row]
+#         solutions = generate_solutions(ex['prompt'], ex['entry_point'], model, tokenizer, n_solutions=n_solutions)
+#         perf = test_solutions(solutions, ex['entry_point'], ex['test'], data_format=data_format)
+#         res = {
+#             "task_id": ex['task_id'],
+#             "best_solution": perf['best_sol'],
+#             "correct_ratio": perf['c']/n_solutions,
+#             "run_time": perf['best_sol_time_ms'],
+#             "best_solution_halstead": halstead_metrics(perf['best_sol']),
+#             "pass_at_k": passatk(n_solutions, perf['c'], k),
+#             "MI": original_MI(perf['best_sol'])
+#         }
+#         with open(save_path, "a") as f:
+#             f.write(json.dumps(res) + "\n")
+#     print(f"Risultati salvati in {save_path}")

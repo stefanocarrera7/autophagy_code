@@ -13,21 +13,23 @@ HF_USERNAME = "stefanocarrera"
 # Assicurati di aver fatto il login da terminale con `huggingface-cli login`
 # oppure decommenta le due righe seguenti inserendo il tuo token:
 # from huggingface_hub import login
-login("xxxxx")
+login("xxxx")
 # -----------------------------------
 
 # Liste per il riepilogo finale globale
 halstaed_avg = []
 stats_per_gen = []
 
-for g in range(5):
+MODEL = "Qwen3-14B-Base-unsloth-bnb-4bit"
+
+for g in range(1,2):
     print(f'\n======================================')
     print(f'    EVALUATING GENERATION [{g}]')
     print(f'======================================')
     
     try:
         # Carica il dataset della generazione corrente
-        df = pd.read_parquet(f"hf://datasets/stefanocarrera/autophagycode_D_unsloth__Qwen3-0.6B-Base-unsloth-bnb-4bit_lr0.0001_gen{g+1}/data/train-00000-of-00001.parquet")
+        df = pd.read_parquet(f"hf://datasets/stefanocarrera/autophagycode_D_HE_unsloth__{MODEL}_lr0.0001_chunck138_gen{g}/data/train-00000-of-00001.parquet")
     except Exception as e:
         print(f"Errore nel download del gen{g}: {e}")
         continue
@@ -137,7 +139,7 @@ for g in range(5):
         hf_dataset = Dataset.from_list(generation_results)
         
         # Creiamo il nome del repository su HF (es: stefanocarrera/autophagy_metrics_gen0)
-        repo_name = f"{HF_USERNAME}/D_metrics_HE_llama_3.1_8B_gen{g}"
+        repo_name = f"{HF_USERNAME}/D_metrics_mercury_{MODEL}_gen{g}"
         
         # Push al repository (crea o sovrascrive)
         hf_dataset.push_to_hub(repo_name)

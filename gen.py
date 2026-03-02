@@ -163,12 +163,18 @@ def generate_solutions(prompt: str,
 
     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
     
+    # Decidiamo se usare il sampling dinamicamente:
+    use_sampling = n_solutions > 1
+    # Se usiamo greedy search, temperature e top_p non servono
+    gen_temperature = temperature if use_sampling else None
+    gen_top_p = top_p if use_sampling else None
+
     outputs = model.generate(
         **inputs,
         max_new_tokens=max_new_tokens,
-        temperature=temperature,
-        top_p=top_p,
-        do_sample=True,
+        temperature=gen_temperature,
+        top_p=gen_top_p,
+        do_sample=use_sampling,  # <-- Aggiornato
         num_return_sequences=n_solutions,
         eos_token_id=tokenizer.eos_token_id,
         pad_token_id=tokenizer.eos_token_id 
