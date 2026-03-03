@@ -35,7 +35,7 @@ def autophagy(
         print(f"Loading model for generation via Unsloth: {current_model_id}")
         gen_model, gen_tok = FastLanguageModel.from_pretrained(
             model_name = current_model_id,
-            max_seq_length = 2048, # Assicurati che corrisponda alla lunghezza usata in train_unsloth
+            max_seq_length = 1024,
             dtype = torch.float16,
             load_in_4bit = True,
         )

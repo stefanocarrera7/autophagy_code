@@ -18,19 +18,23 @@ def autophagy(
     model_type: str = "llama", # 'llama' o 'qwen'
     g: int = 10,
     n_solutions: int = 1,
-    lr: float = 1e-4
+    lr: float = 1e-4,
+    start_round: int = 0,               # per riprendere da un round specifico in caso di interruzioni
+    resume_model_id: str = None         # ultimo modello addestrato
     ):
 
     sample = real_data_train
     base_tag = _sanitize_repo_name(base_model_id)
-    prev_adapter_repo = None
-    chunk_size = 138
+    prev_adapter_repo = resume_model_id
+    chunk_size = 138      # cambiare per renderlo dinamico in base alla dimensione del dataset e al numero di generazioni, a 138 solo per test, dato che stiamo runnando solo 5 generazioni
 
     if real_data_test == "he":
         print("\nLoading HumanEval test set...")
-        test_data = load_dataset("stefanocarrera/autophagy_D_evalplus")
+        test_data = load_dataset("stefanocarrera/autophagy_D_evalplus", split="train")
+        # # TEST
+        # test_data = test_data.select(range(5))
 
-    for t in range(g):
+    for t in range(start_round, g):
         print(f"\n{'='*40}")
         print(f"   === Generation round {t+1}/{g} ===")
         print(f"{'='*40}")
@@ -47,7 +51,7 @@ def autophagy(
         )
         FastLanguageModel.for_inference(gen_model)
 
-        # --- Calcolo sicuro degli indici per il subset del round --- 
+        # --- Calcolo degli indici per il subset del round --- 
         start_idx = t * chunk_size
         end_idx = min((t + 1) * chunk_size, len(sample)) # Impedisce l'Out of Bounds
         
@@ -98,7 +102,7 @@ def autophagy(
         model_id = f"stefanocarrera/autophagycode_M_{base_tag}_lr{lr}_gen{t+1}"
         data_id  = f"stefanocarrera/autophagycode_D_{base_tag}_lr{lr}_gen{t+1}"
 
-        # --- Salvataggio su Hugging Face ---
+        # --- Salvataggio su HF ---
         print("\nPushing to HuggingFace Hub...")
         synth.push_to_hub(data_id)
         ft_model.push_to_hub(model_id)
@@ -108,14 +112,32 @@ def autophagy(
         # Aggiorniamo i riferimenti per il prossimo giro
         prev_adapter_repo = model_id
         
-        # --- PULIZIA DELLA RAM E DELLA VRAM (POST-TRAINING) ---
+        # --- 7. PULIZIA DELLA RAM E DELLA VRAM (POST-TRAINING) ---
         print("\nPulizia totale della memoria prima del prossimo round...")
+        
+        # 1. Distruggi esplicitamente il Trainer (contiene lo stato dell'ottimizzatore)
+        if 'trainer' in locals():
+            del trainer
+            
+        # 2. Cancella le variabili locali del modello
         del ft_model
         del ft_tok
-        del test_synth
-        del synth
+        
+        # 3. Se esistono ancora i dati generati, eliminali
+        if 'synth' in locals():
+            del synth
+        if 'test_synth' in locals():
+            del test_synth
+            
+        # 4. Garbage collection profonda
         gc.collect()
-        torch.cuda.empty_cache()
+        
+        # 5. Svuota la cache di PyTorch in due modi
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.ipc_collect()
+            
+        print("Memoria liberata con successo. VRAM attuale allocata:", torch.cuda.memory_allocated() / 1e9, "GB")
     
     print("\n[PIPELINE COMPLETATA]")
     return prev_adapter_repo

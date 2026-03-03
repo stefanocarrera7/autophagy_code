@@ -6,7 +6,7 @@ import gc
 
 def evaluate_and_push_metrics(
     test_synth: Dataset,      # dataset da testare
-    real_data_test: str,      # only used in naming the metrics dataset for hf
+    real_data_test: str,
     base_tag: str, 
     lr: float, 
     gen_round: int,
@@ -50,9 +50,7 @@ def evaluate_and_push_metrics(
             continue
 
         # Esecuzione test
-        res = test_solutions([sol], entry, test_cell, "human_eval", verbose=verbose)
-
-        row_metrics["test_run_time_ms"] = res.get("solutions_summary", {}).get("time_ms", None)
+        res = test_solutions([sol], entry, test_cell, data_format=real_data_test, verbose=verbose)
         
         # Analisi Eseguibilità e Correttezza
         if res.get("prop_correct_defined", 0) > 0.99:
@@ -65,11 +63,15 @@ def evaluate_and_push_metrics(
                 row_metrics["error_type"] = "SyntaxError"
         else:
             summary = res['solutions_summary'][0]
+            
             ok_count = summary.get('ok', 0)
             fail_count = summary.get('fail', 0)
             
             row_metrics["tests_passed"] = ok_count
             row_metrics["tests_failed"] = fail_count
+            
+            # NUOVA RIGA INSERITA QUI:
+            row_metrics["test_run_time_ms"] = summary.get("time_ms", None)
             
             if fail_count == 0 and ok_count > 0:
                 row_metrics["is_correct"] = True
