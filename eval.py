@@ -22,39 +22,39 @@ signal.signal(signal.SIGALRM, timeout_handler)
 
 #################################
 
-def extract_inputs_results(code_str, target_names=("inputs", "results")):
-    """Estrae input e risultati per il formato HumanEval (he)."""
-    try:
-        tree = ast.parse(code_str)
-    except:
-        return {}
-    found = {}
-    class Finder(ast.NodeVisitor):
-        def _capture(self, targets, value):
-            try:
-                lit = ast.literal_eval(value)
-            except Exception:
-                return
-            for t in targets:
-                if isinstance(t, ast.Name) and t.id in target_names:
-                    found[t.id] = lit
-        def visit_Assign(self, node):
-            self._capture(node.targets, node.value)
-            self.generic_visit(node)
-        def visit_AnnAssign(self, node):
-            targets = [node.target] if node.target else []
-            if node.value is not None:
-                self._capture(targets, node.value)
-            self.generic_visit(node)
-    Finder().visit(tree)
-    return found
+# def extract_inputs_results(code_str, target_names=("inputs", "results")):
+#     """Estrae input e risultati per il formato HumanEval (he)."""
+#     try:
+#         tree = ast.parse(code_str)
+#     except:
+#         return {}
+#     found = {}
+#     class Finder(ast.NodeVisitor):
+#         def _capture(self, targets, value):
+#             try:
+#                 lit = ast.literal_eval(value)
+#             except Exception:
+#                 return
+#             for t in targets:
+#                 if isinstance(t, ast.Name) and t.id in target_names:
+#                     found[t.id] = lit
+#         def visit_Assign(self, node):
+#             self._capture(node.targets, node.value)
+#             self.generic_visit(node)
+#         def visit_AnnAssign(self, node):
+#             targets = [node.target] if node.target else []
+#             if node.value is not None:
+#                 self._capture(targets, node.value)
+#             self.generic_visit(node)
+#     Finder().visit(tree)
+#     return found
 
 def wrapper_func_time(func, run, *args):
     frozen_func = functools.partial(func, *args)
     t_runs = timeit.repeat(frozen_func, repeat=run, number=1)
     return min(t_runs)
 
-def test_solutions(solutions, entry_point, test_cell, data_format="he", test_runs=5, verbose=False):
+def test_solutions(solutions, entry_point, test_cell, data_format="he", test_runs=1, verbose=False):
     """
     Testa le soluzioni generate gestendo sia funzioni globali che metodi di classe Solution.
     """
@@ -67,12 +67,13 @@ def test_solutions(solutions, entry_point, test_cell, data_format="he", test_run
     solutions_sum = []
 
     # Preparazione dei dati di test
-    if data_format == 'he':
-        td = extract_inputs_results(test_cell)
-        inputs_list = td.get("inputs", [])
-        results_list = td.get("results", [])
-        n_tests = min(len(inputs_list), len(results_list))
-    else:
+    if data_format == 'evalplus':
+        n_tests = None
+    #     td = extract_inputs_results(test_cell)
+    #     inputs_list = td.get("inputs", [])
+    #     results_list = td.get("results", [])
+    #     n_tests = min(len(inputs_list), len(results_list))
+    else:    # mbpp o he
         asserts = [
             line.strip() 
             for line in test_cell.split("\n") 
@@ -80,10 +81,17 @@ def test_solutions(solutions, entry_point, test_cell, data_format="he", test_run
         ]
         n_tests = len(asserts)
 
-    if n_tests == 0:
+    if n_tests == 0 and n_tests is not None:
         if verbose:
             print(f"Nessun test trovato nella stringa:\n {test_cell}")
-        return {"best_sol": best_sol, "c": 0, "prop_test_passed": [], "running_time": []}
+        return {
+            "solutions_summary": [], 
+            "best_sol": best_sol, 
+            "best_sol_time_ms": None,
+            "prop_correct_defined": 0,
+            "c": 0,
+            "errors": ["NoTestsFound"]
+        }
 
     for i, sol in enumerate(solutions):
         timeouts = 0
@@ -130,35 +138,47 @@ def test_solutions(solutions, entry_point, test_cell, data_format="he", test_run
             ok = 0
             fail = 0
             sol_time = False
+            ratio_he = 0.0
             
-            if data_format == 'he':
-                exec(test_cell, ns, ns)  # Definire la funione check()
-                check_func = ns['check']
+            if data_format == 'evalplus':
+                # Compila la cella di test per caricare le funzioni (es. check) nel namespace ns
                 try:
-                    signal.alarm(5)
+                    exec(test_cell, ns, ns)
+                except Exception:
+                    pass
+                
+                check_func = ns.get('check')
+                
+                try:
+                    # Copriamo SIA la correttezza SIA il tempo con un singolo allarme
+                    signal.alarm(5) 
                     try:
-                        ratio_he = check_func(candidate_func)
+                        # 1. Verifica la correttezza
+                        if check_func:
+                            ratio_he = check_func(candidate_func)
+                            if ratio_he is None: 
+                                ratio_he = 1.0 # Sicurezza se check non ritorna nulla
+                        else:
+                            ratio_he = 1.0 # Caso in cui gli assert siano globali in test_cell
+                            
+                        # 2. Misura il tempo SOLO se ha passato i test (sotto l'ombrello dell'allarme!)
+                        if ratio_he >= 0.999:
+                            if check_func:
+                                sol_time = wrapper_func_time(check_func, test_runs, candidate_func)
+                            else:
+                                sol_time = wrapper_func_time(exec, test_runs, test_cell, ns, ns)
+                                
                     finally:
-                        signal.alarm(0)
-
+                        signal.alarm(0) # Spegne sempre e comunque l'allarme
+                        
                 except TimeoutException:
                     timeouts += 1
                     fail = 1
+                    ratio_he = 0.0
                 except Exception as e:
-                    # Cattura qualsiasi errore imprevisto non gestito internamente da check()
-                    if verbose:
-                        print(f"[SOLUTION {i}] Errore durante l'esecuzione di check(): {e}")
                     fail = 1
-
-                # --- MISURAZIONE DEL TEMPO ---
-                if ratio_he >= 0.999:
-                    sol_time = 0
-                    try:
-                        # Poiché gli input sono "nascosti" dentro check(), misuriamo il tempo di esecuzione dell'intera suite di test.
-                        t_run = wrapper_func_time(check_func, test_runs, candidate_func)
-                        sol_time = t_run
-                    except Exception:
-                        pass
+                    ratio_he = 0.0
+                    if verbose: print(f"[SOLUTION {i}] Errore test: {e}")
 
             elif data_format == 'mbpp':
                 for a in asserts:
@@ -184,7 +204,6 @@ def test_solutions(solutions, entry_point, test_cell, data_format="he", test_run
             
             else: # data_format == 'human_eval NON PLUS'
                 
-                # RISOLUZIONE DEL BUG: Mappiamo la parola 'candidate' alla funzione da testare
                 ns['candidate'] = candidate_func 
                 
                 for a in asserts:
@@ -202,7 +221,7 @@ def test_solutions(solutions, entry_point, test_cell, data_format="he", test_run
 
             # --- FASE 3: STATISTICHE ---
             sol_time_ms = sol_time * 1000 if sol_time is not False else None
-            if data_format == 'he':
+            if data_format == 'evalplus':
                 ok = ratio_he
                 fail = 1 - ratio_he
                 total = 1

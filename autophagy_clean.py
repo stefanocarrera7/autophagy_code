@@ -30,6 +30,10 @@ def autophagy(
 
     if real_data_test == "he":
         print("\nLoading HumanEval test set...")
+        test_data = load_dataset("openai/openai_humaneval", split="test")
+
+    if real_data_test == "evalplus":
+        print("\nLoading EvalPlus test set...")
         test_data = load_dataset("stefanocarrera/autophagy_D_evalplus", split="train")
         # # TEST
         # test_data = test_data.select(range(5))
@@ -65,8 +69,8 @@ def autophagy(
         # --- Generazione del dataset sintetico per il test (HumanEval) ---
         print(f"\nGenerating synthetic test set for generation {t+1}...")
         test_synth = generate_sample(test_data, gen_model, gen_tok, n_solutions=n_solutions)
-        he_data_id = f"stefanocarrera/autophagycode_D_{real_data_test}_{base_tag}_lr{lr}_chunk{chunk_size}_gen{t+1}_test"
-        test_synth.push_to_hub(he_data_id)
+        test_data_id = f"stefanocarrera/autophagycode_D_{real_data_test}_{base_tag}_lr{lr}_chunk{chunk_size}_gen{t+1}_test"
+        test_synth.push_to_hub(test_data_id)
 
         # --- Valutazione delle metriche sul test ---
         evaluate_and_push_metrics(test_synth, real_data_test, base_tag, lr, t+1, verbose = False)

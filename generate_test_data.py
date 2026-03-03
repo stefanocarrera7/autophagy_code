@@ -14,11 +14,13 @@ base_data = load_dataset("openai_humaneval", split="test")
 
 num_generations = 0
 n_sol_per_prompt = 1
-max_seq_length = 1024 # Parametro richiesto da Unsloth
+max_seq_length = 512
+test_data_id = "evalplus"
 
 HF_USERNAME = "stefanocarrera"
 MODEL = "Qwen3-14B-Base-unsloth-bnb-4bit"
-DATASET_BASE_NAME = f"autophagycode_D_HE_unsloth__{MODEL}_lr0.0001_chunck138_gen"
+DATASET_BASE_NAME = f"autophagycode_D_{test_data_id}_unsloth__{MODEL}_lr0.0001_chunck138_gen"
+
 
 for g in range(num_generations + 1):
     print(f"\n{'='*50}")

@@ -33,7 +33,7 @@ base_model_id = base_models.get('qwen_14b')
 autophagy.autophagy(
     base_model_id=base_model_id,
     real_data_train=real_data,
-    real_data_test= "he",
+    real_data_test= "evalplus",
     model_type = "qwen",
     g=5,        
     n_solutions=1,
