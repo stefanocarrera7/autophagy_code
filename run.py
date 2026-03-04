@@ -19,10 +19,10 @@ def is_valid_test(example):
     return isinstance(example['test'], str) and len(example['test'].strip()) > 0
 
 # 2. Caricamento dati
-real_data = load_dataset("stefanocarrera/D_mercury_to_he", split='train')
+real_data = load_dataset("stefanocarrera/autophagy_D_mercury", split='train')
 # # TEST
 # real_data = real_data.shuffle(seed=42).select(range(5))
-prev_adapter_repo = "stefanocarrera/autophagycode_M_unsloth__Qwen3-14B-Base-unsloth-bnb-4bit_lr0.0001_gen4"   # utilizzre se c'èe stata un interruzione del ciclo
+prev_adapter_repo = "stefanocarrera/autophagycode_M_unsloth__Qwen3-14B-Base-unsloth-bnb-4bit_lr0.0001_chunk150_gen2"
 
 print(f"Dataset originale: {len(real_data)} righe")
 real_data = real_data.filter(is_valid_test)
@@ -33,11 +33,11 @@ base_model_id = base_models.get('qwen_14b')
 autophagy.autophagy(
     base_model_id=base_model_id,
     real_data_train=real_data,
-    real_data_test= "evalplus",
+    real_data_test= "he",
     model_type = "qwen",
     g=5,        
     n_solutions=1,
     lr=1e-4,
-    start_round=4,
+    start_round=2,
     resume_model_id=prev_adapter_repo
 )

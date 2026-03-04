@@ -26,7 +26,7 @@ def autophagy(
     sample = real_data_train
     base_tag = _sanitize_repo_name(base_model_id)
     prev_adapter_repo = resume_model_id
-    chunk_size = 138      # cambiare per renderlo dinamico in base alla dimensione del dataset e al numero di generazioni, a 138 solo per test, dato che stiamo runnando solo 5 generazioni
+    chunk_size = 150      # cambiare per renderlo dinamico in base alla dimensione del dataset e al numero di generazioni, a 138 solo per test, dato che stiamo runnando solo 5 generazioni
 
     if real_data_test == "he":
         print("\nLoading HumanEval test set...")
@@ -103,8 +103,8 @@ def autophagy(
 
         print("\nEnd Finetuning...")
 
-        model_id = f"stefanocarrera/autophagycode_M_{base_tag}_lr{lr}_gen{t+1}"
-        data_id  = f"stefanocarrera/autophagycode_D_{base_tag}_lr{lr}_gen{t+1}"
+        model_id = f"stefanocarrera/autophagycode_M_{base_tag}_lr{lr}_chunk{chunk_size}_gen{t+1}"
+        data_id  = f"stefanocarrera/autophagycode_D_train_{base_tag}_lr{lr}_chunk{chunk_size}_gen{t+1}"
 
         # --- Salvataggio su HF ---
         print("\nPushing to HuggingFace Hub...")

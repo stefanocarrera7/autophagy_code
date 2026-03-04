@@ -15,7 +15,7 @@ base_data = load_dataset("openai_humaneval", split="test")
 num_generations = 0
 n_sol_per_prompt = 1
 max_seq_length = 512
-test_data_id = "evalplus"
+test_data_id = "he"
 
 HF_USERNAME = "stefanocarrera"
 MODEL = "Qwen3-14B-Base-unsloth-bnb-4bit"
@@ -29,7 +29,7 @@ for g in range(num_generations + 1):
 
     # --- LOGICA DI SELEZIONE DEL MODELLO ---
     if g == 0:
-        # Generazione 0: Modello originale di Meta
+        # Generazione 0: Modello originale
         model_repo = "unsloth/Qwen3-14B-Base-unsloth-bnb-4bit"
     else:
         model_repo = f"stefanocarrera/autophagycode_M_unsloth__{MODEL}_lr0.0001_gen{g}"
@@ -45,7 +45,6 @@ for g in range(num_generations + 1):
         dtype = torch.float16, # <-- FORZATO per la tua Tesla T4 (Turing non supporta bfloat16)
         load_in_4bit = True,   # <-- FONDAMENTALE per non superare i 15 GB di VRAM
     )
-
     # Abilita l'inferenza nativa 2x più veloce di Unsloth
     FastLanguageModel.for_inference(model)
 

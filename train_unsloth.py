@@ -95,20 +95,14 @@ def finetune_model(
     columns_to_keep = ["text"]
     ds = ds.remove_columns([c for c in ds.column_names if c not in columns_to_keep])
 
-    split = ds.train_test_split(test_size=0.05, seed=42)
-    train_ds, eval_ds = split["train"], split["test"]
-
     # 4) Argomenti Trainer
     args = UnslothTrainingArguments(
         output_dir = output_dir,
         per_device_train_batch_size = batch_size,
-        per_device_eval_batch_size  = batch_size,
         gradient_accumulation_steps = grad_accum,
         learning_rate = lr,
         num_train_epochs = num_train_epochs,
         logging_steps = 1,
-        eval_strategy = "steps",
-        eval_steps = 100,
         save_steps = 100,
         save_total_limit = 2,
         bf16 = is_bfloat16_supported(),
@@ -124,8 +118,8 @@ def finetune_model(
     trainer = UnslothTrainer(
         model = model,
         tokenizer = tokenizer,
-        train_dataset = train_ds,
-        eval_dataset = eval_ds,
+        train_dataset = ds,       # INSERITO DIRETTAMENTE L'INTERO DATASET
+        # eval_dataset RIMOSSO
         dataset_text_field = "text",
         max_seq_length = max_seq_length,
         dataset_num_proc = 4,
