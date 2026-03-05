@@ -52,6 +52,7 @@ def autophagy(
             max_seq_length = 1024,
             dtype = torch.float16,
             load_in_4bit = True,
+            device_map = "auto",
         )
         FastLanguageModel.for_inference(gen_model)
 
@@ -116,7 +117,7 @@ def autophagy(
         # Aggiorniamo i riferimenti per il prossimo giro
         prev_adapter_repo = model_id
         
-        # --- 7. PULIZIA DELLA RAM E DELLA VRAM (POST-TRAINING) ---
+        # --- PULIZIA DELLA RAM E DELLA VRAM (POST-TRAINING) ---
         print("\nPulizia totale della memoria prima del prossimo round...")
         
         # 1. Distruggi esplicitamente il Trainer (contiene lo stato dell'ottimizzatore)

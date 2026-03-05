@@ -118,8 +118,7 @@ def finetune_model(
     trainer = UnslothTrainer(
         model = model,
         tokenizer = tokenizer,
-        train_dataset = ds,       # INSERITO DIRETTAMENTE L'INTERO DATASET
-        # eval_dataset RIMOSSO
+        train_dataset = ds,     
         dataset_text_field = "text",
         max_seq_length = max_seq_length,
         dataset_num_proc = 4,

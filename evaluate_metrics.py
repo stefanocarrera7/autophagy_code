@@ -70,7 +70,6 @@ def evaluate_and_push_metrics(
             row_metrics["tests_passed"] = ok_count
             row_metrics["tests_failed"] = fail_count
             
-            # NUOVA RIGA INSERITA QUI:
             row_metrics["test_run_time_ms"] = summary.get("time_ms", None)
             
             if fail_count == 0 and ok_count > 0:

@@ -81,7 +81,12 @@ def halstead_metrics(source):
     n1, n2 = len(operators), len(operands)
 
     if n1 == 0 or n2 == 0:
-        raise ValueError("n1 == 0 or n2 == 0")
+            return {"vocabulary": 0,
+            "length": 0,
+            "volume": 0,
+            "difficulty": 0,
+            "effort": 0
+            }
     
     vocabulary = h_vocavulary(n1, n2)
     length = h_length(N1, N2)
@@ -181,19 +186,19 @@ def original_MI(source: str) -> float:
     halstead = halstead_metrics(source)
     if halstead is None:
         return None
-    V = halstead.get("volume")
+    V = max(halstead.get("volume"), 1e-8)
     G = cyclomatic_complexity_mccabe(source)
     if G == None:
         return None
-    L = loc(source)
+    L = max(loc(source), 1e-8)
     return 171 - 5.2 * math.log(V) - 0.23 * G - 16.2 * math.log(L)
 
 def radon_MI(source: str) -> float:
-    V = halstead_metrics(source).get("volume")
+    V = max(halstead_metrics(source).get("volume"), 1e-8)
     G = cyclomatic_complexity_mccabe(source)
     if G == None:
         return None
-    L = loc(source)
+    L = max(loc(source), 1e-8)
     C = perc_of_comments(source)
     return max(0, 100 * (171 - 5.2 * math.log(V) - 0.23 * G - 16.2 * math.log(L) + 50 * math.sin(math.sqrt(2.4 * C))) / 171)
 

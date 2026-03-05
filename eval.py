@@ -202,7 +202,7 @@ def test_solutions(solutions, entry_point, test_cell, data_format="he", test_run
                         except:
                             continue
             
-            else: # data_format == 'human_eval NON PLUS'
+            else: # data_format == 'he NON PLUS'
                 
                 ns['candidate'] = candidate_func 
                 

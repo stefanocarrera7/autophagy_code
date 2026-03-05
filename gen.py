@@ -185,11 +185,11 @@ def generate_solutions(prompt: str,
     final_solutions = []
     for sol in raw_solutions:
         # Passiamo l'entry_point per il filtraggio intelligente
-        clean_code = extract_clean_code(prompt, sol, entry_point)
+        # clean_code = extract_clean_code(prompt, sol, entry_point)
         
-        if not clean_code.strip():
+        if not sol.strip():
              final_solutions.append(remove_markdown(sol))
         else:
-             final_solutions.append(clean_code)
+             final_solutions.append(sol.strip())
 
     return final_solutions
