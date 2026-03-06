@@ -70,23 +70,35 @@ def finetune_model(
     # 3) Preparazione Dati con Template Dinamico
     EOS_TOKEN = tokenizer.eos_token 
     
+    # def formatting_prompts_func(ex):
+    #     prompt_text = ex['prompt']
+    #     completion_text = ex['completion']
+
+    #     if model_type.lower() == "qwen":
+    #         # --- FORMATO CHATML (Ideale per Qwen) ---
+    #         text = (
+    #             f"<|im_start|>user\n{prompt_text}<|im_end|>\n"
+    #             f"<|im_start|>assistant\n{completion_text}<|im_end|>"
+    #         ) + EOS_TOKEN
+            
+    #     else:
+    #         # --- FORMATO ALPACA/STANDARD (Ideale per Llama) ---
+    #         text = (
+    #             f"### Prompt:\n{prompt_text}\n\n"
+    #             f"### Completion:\n{completion_text}"
+    #         ) + EOS_TOKEN
+            
+    #     return {"text": text}
+
+    # 3) Preparazione Dati con Template Dinamico
+    
     def formatting_prompts_func(ex):
         prompt_text = ex['prompt']
         completion_text = ex['completion']
 
-        if model_type.lower() == "qwen":
-            # --- FORMATO CHATML (Ideale per Qwen) ---
-            text = (
-                f"<|im_start|>user\n{prompt_text}<|im_end|>\n"
-                f"<|im_start|>assistant\n{completion_text}<|im_end|>"
-            ) + EOS_TOKEN
-            
-        else:
-            # --- FORMATO ALPACA/STANDARD (Ideale per Llama) ---
-            text = (
-                f"### Prompt:\n{prompt_text}\n\n"
-                f"### Completion:\n{completion_text}"
-            ) + EOS_TOKEN
+        # APPROCCIO "COMPLETION-ONLY": 
+        # Attacchiamo il prompt direttamente alla completion, seguito dal token di fine.
+        text = prompt_text + completion_text + EOS_TOKEN
             
         return {"text": text}
 

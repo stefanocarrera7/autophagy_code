@@ -76,6 +76,10 @@ def autophagy(
         # --- Valutazione delle metriche sul test ---
         evaluate_and_push_metrics(test_synth, real_data_test, base_tag, lr, t+1, verbose = False)
 
+        if t == g - 1:
+            print("\nUltima generazione completata, Pipeline terminata.")
+            break
+
         print("\nStarting sample generation...")
         synth = generate_sample(current_subset, gen_model, gen_tok, n_solutions=n_solutions)
 
