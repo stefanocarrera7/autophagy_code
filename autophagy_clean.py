@@ -19,14 +19,15 @@ def autophagy(
     g: int = 10,
     n_solutions: int = 1,
     lr: float = 1e-4,
-    start_round: int = 0,               # per riprendere da un round specifico in caso di interruzioni
-    resume_model_id: str = None         # ultimo modello addestrato
+    start_round: int = 0,                           # per riprendere da un round specifico in caso di interruzioni
+    resume_model_id: str = None,                     # ultimo modello addestrato
+    real_data_per_generation: float = None,          # se specificato, indica la percentuale di dati reali da utilizzare per ogni generazione
     ):
 
     sample = real_data_train
     base_tag = _sanitize_repo_name(base_model_id)
     prev_adapter_repo = resume_model_id
-    chunk_size = 150      # cambiare per renderlo dinamico in base alla dimensione del dataset e al numero di generazioni, a 138 solo per test, dato che stiamo runnando solo 5 generazioni
+    chunk_size = int(len(sample) / g)     # cambiare per renderlo dinamico in base alla dimensione del dataset e al numero di generazioni, a 138 solo per test, dato che stiamo runnando solo 5 generazioni
 
     if real_data_test == "he":
         print("\nLoading HumanEval test set...")
@@ -52,7 +53,7 @@ def autophagy(
             max_seq_length = 1024,
             dtype = torch.float16,
             load_in_4bit = True,
-            device_map = "auto",
+            device_map = {"": 0},
         )
         FastLanguageModel.for_inference(gen_model)
 
@@ -81,7 +82,7 @@ def autophagy(
             break
 
         print("\nStarting sample generation...")
-        synth = generate_sample(current_subset, gen_model, gen_tok, n_solutions=n_solutions)
+        synth = generate_sample(current_subset, gen_model, gen_tok, n_solutions=n_solutions, real_data_prop=real_data_per_generation)
 
         # --- PULIZIA DELLA VRAM (PRE-TRAINING) ---
         print("\nPulizia della VRAM in corso prima del finetuning...")
@@ -121,27 +122,19 @@ def autophagy(
         # Aggiorniamo i riferimenti per il prossimo giro
         prev_adapter_repo = model_id
         
-        # --- PULIZIA DELLA RAM E DELLA VRAM (POST-TRAINING) ---
-        print("\nPulizia totale della memoria prima del prossimo round...")
+        # --- 7. PULIZIA DELLA VRAM (POST-TRAINING) EXTREME ---
+        print("\nPulizia della VRAM in corso prima del prossimo round di generazione...")
         
-        # 1. Distruggi esplicitamente il Trainer (contiene lo stato dell'ottimizzatore)
-        if 'trainer' in locals():
-            del trainer
-            
-        # 2. Cancella le variabili locali del modello
+        # Sposta esplicitamente il modello sulla CPU per liberare subito la VRAM
+        ft_model.cpu()
+        
         del ft_model
         del ft_tok
         
-        # 3. Se esistono ancora i dati generati, eliminali
-        if 'synth' in locals():
-            del synth
-        if 'test_synth' in locals():
-            del test_synth
-            
-        # 4. Garbage collection profonda
+        # Doppio giro di garbage collection
         gc.collect()
+        gc.collect() 
         
-        # 5. Svuota la cache di PyTorch in due modi
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
             torch.cuda.ipc_collect()

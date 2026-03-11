@@ -114,16 +114,17 @@ def test_solutions(solutions, entry_point, test_cell, data_format="he", test_run
 
             # se exec() non ha dato errori allora il modello ha generato una soluzione almeno eseguibile:
             n_executable += 1
+
             # --- FASE 1.5: PROMOZIONE METODI CLASSE SOLUTION ---
             # Se il modello ha usato 'class Solution', portiamo i suoi metodi nel namespace globale
-            if 'Solution' in ns:
-                try:
-                    sol_instance = ns['Solution']()
-                    for attr_name in dir(sol_instance):
-                        if not attr_name.startswith("__"):
-                            ns[attr_name] = getattr(sol_instance, attr_name)
-                except:
-                    pass
+            # if 'Solution' in ns:
+            #     try:
+            #         sol_instance = ns['Solution']()
+            #         for attr_name in dir(sol_instance):
+            #             if not attr_name.startswith("__"):
+            #                 ns[attr_name] = getattr(sol_instance, attr_name)
+            #     except:
+            #         pass
 
             if entry_point not in ns:
                 errors.append("EntryPointNotFound")
@@ -150,7 +151,7 @@ def test_solutions(solutions, entry_point, test_cell, data_format="he", test_run
                 check_func = ns.get('check')
                 
                 try:
-                    # Copriamo SIA la correttezza SIA il tempo con un singolo allarme
+                    # Copriamo sia la correttezza sia il tempo con un singolo allarme
                     signal.alarm(5) 
                     try:
                         # 1. Verifica la correttezza
@@ -205,19 +206,28 @@ def test_solutions(solutions, entry_point, test_cell, data_format="he", test_run
             else: # data_format == 'he NON PLUS'
                 
                 ns['candidate'] = candidate_func 
-                
+
+                assert_times = []
+                t_start = None
                 for a in asserts:
                     if timeouts >= 1: break
                     try:
                         signal.alarm(3)
+                        t_start = time.perf_counter()
                         try:
                             exec(a, ns, ns)
+                            # t_end e append vengono eseguiti solo se exec ha successo
+                            t_duration = time.perf_counter() - t_start
+                            assert_times.append(t_duration)
+                            ok += 1
                         finally:
                             signal.alarm(0)
-                        ok += 1
-                    except Exception as e:
+                    except Exception:
                         fail += 1
                         # if verbose: print(f"Test fallito: {a} | Errore: {e}")
+                
+                if fail == 0 and assert_times:
+                    sol_time = sum(assert_times)
 
             # --- FASE 3: STATISTICHE ---
             sol_time_ms = sol_time * 1000 if sol_time is not False else None
@@ -257,21 +267,3 @@ def test_solutions(solutions, entry_point, test_cell, data_format="he", test_run
         "c": n_correct,
         "errors": errors
     }
-
-# def test_model(test_split, model, tokenizer, n_solutions, save_path, data_format="he", k=1, start_index=0, end_index=146):
-#     for row in range(start_index, end_index):
-#         ex = test_split[row]
-#         solutions = generate_solutions(ex['prompt'], ex['entry_point'], model, tokenizer, n_solutions=n_solutions)
-#         perf = test_solutions(solutions, ex['entry_point'], ex['test'], data_format=data_format)
-#         res = {
-#             "task_id": ex['task_id'],
-#             "best_solution": perf['best_sol'],
-#             "correct_ratio": perf['c']/n_solutions,
-#             "run_time": perf['best_sol_time_ms'],
-#             "best_solution_halstead": halstead_metrics(perf['best_sol']),
-#             "pass_at_k": passatk(n_solutions, perf['c'], k),
-#             "MI": original_MI(perf['best_sol'])
-#         }
-#         with open(save_path, "a") as f:
-#             f.write(json.dumps(res) + "\n")
-#     print(f"Risultati salvati in {save_path}")

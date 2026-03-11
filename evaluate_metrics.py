@@ -20,9 +20,9 @@ def evaluate_and_push_metrics(
     generation_results = []
     
     for j in range(len(test_synth)):
-        raw_sol = str(test_synth["completion"][j])
-        sol = remove_markdown(raw_sol)
-        sol = light_cleanup(sol)
+        sol = str(test_synth["completion"][j])
+        # sol = remove_markdown(sol)
+        # sol = light_cleanup(sol)
         
         entry = str(test_synth["entry_point"][j])
         test_cell = str(test_synth["test"][j])
@@ -57,10 +57,8 @@ def evaluate_and_push_metrics(
             row_metrics["is_executable"] = True
             
         if not res['solutions_summary']:
-            if "EntryPointNotFound" in res.get("errors", []):
-                row_metrics["error_type"] = "EntryPointNotFound"
-            else:
-                row_metrics["error_type"] = "SyntaxError"
+            row_metrics["error_type"] = res.get("errors", [])[0]
+            
         else:
             summary = res['solutions_summary'][0]
             

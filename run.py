@@ -1,8 +1,11 @@
+import os
+os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
+
 from huggingface_hub import login
 from datasets import load_dataset
 import autophagy_clean as autophagy
 
-login(token="xxx")
+login(token="xxxx")
 
 # Modelli
 base_models = {
@@ -22,22 +25,22 @@ def is_valid_test(example):
 real_data = load_dataset("stefanocarrera/autophagy_D_mercury", split='train')
 # # TEST
 # real_data = real_data.shuffle(seed=42).select(range(5))
-# prev_adapter_repo = "stefanocarrera/autophagycode_M_unsloth__Qwen3-14B-Base-unsloth-bnb-4bit_lr0.0001_chunk150_gen4"
+prev_adapter_repo = "stefanocarrera/autophagycode_M_unsloth__Qwen3-0.6B-Base-unsloth-bnb-4bit_lr0.0001_chunk284_gen4"
 
 print(f"Dataset originale: {len(real_data)} righe")
 real_data = real_data.filter(is_valid_test)
 print(f"Dataset filtrato: {len(real_data)} righe")
 
 # autofagia
-base_model_id = base_models.get('qwen_14b')
+base_model_id = base_models.get('qwen_06b')
 autophagy.autophagy(
     base_model_id=base_model_id,
     real_data_train=real_data,
     real_data_test= "he",
     model_type = "qwen",
-    g=5,
+    g=10,
     n_solutions=1,
     lr=1e-4,
-    start_round=0,
+    start_round=0,        # se maggiore di 0, deve esserci anche resume_model_id
     resume_model_id=None
 )

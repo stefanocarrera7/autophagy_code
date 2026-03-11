@@ -34,7 +34,7 @@ def finetune_model(
         max_seq_length = max_seq_length,
         dtype = None,
         load_in_4bit = True,
-        device_map = "auto",
+        device_map = {"": 0},
     )
 
     # Gestione specifica per Qwen (Pad Token)
@@ -143,5 +143,13 @@ def finetune_model(
     model.save_pretrained(output_dir)
     tokenizer.save_pretrained(output_dir)
     FastLanguageModel.for_inference(model)
+
+    # --- FIX MEMORY LEAK ---
+    # Rompiamo i riferimenti circolari del Trainer che bloccano la VRAM
+    if hasattr(trainer, "optimizer"):
+        del trainer.optimizer
+    if hasattr(trainer, "lr_scheduler"):
+        del trainer.lr_scheduler
+    del trainer
     
     return model, tokenizer

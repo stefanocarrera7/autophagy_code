@@ -182,14 +182,6 @@ def generate_solutions(prompt: str,
     
     raw_solutions = [tokenizer.decode(out, skip_special_tokens=True) for out in outputs]
     
-    final_solutions = []
-    for sol in raw_solutions:
-        # Passiamo l'entry_point per il filtraggio intelligente
-        # clean_code = extract_clean_code(prompt, sol, entry_point)
-        
-        if not sol.strip():
-             final_solutions.append(remove_markdown(sol))
-        else:
-             final_solutions.append(sol.strip())
+    final_solutions = [x.strip() for x in raw_solutions]
 
     return final_solutions

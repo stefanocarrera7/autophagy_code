@@ -6,15 +6,11 @@ from huggingface_hub import login
 
 login(token = "xxx")
 
-g = 5
-base_model_id = "unsloth/Qwen3-14B-Base-unsloth-bnb-4bit"
+g = 10
+model_id = "unsloth__Qwen3-8B-Base-unsloth-bnb-4bit"
 lr = 0.0001
-chunk = 138
-base_tag = _sanitize_repo_name(base_model_id)
 
-for t in range(4, g + 1):
+for t in range(1, g + 1):
 
-    # test_data = load_dataset(f"stefanocarrera/autophagycode_D_he_{base_tag}_lr{lr}_chunk{chunk}_gen{t}_test", split="train")
-    test_data = load_dataset(f"stefanocarrera/autophagycode_D_{base_tag}_lr{lr}_gen{t}", split="train")
-
-    evaluate_and_push_metrics(test_data, "he", base_tag, 1e-4, t)
+    test_data = load_dataset(f"stefanocarrera/autophagycode_D_he_{model_id}_lr0.0001_chunk142_gen{t}_test", split="train")
+    evaluate_and_push_metrics(test_data, "he", model_id, 1e-4, t)
