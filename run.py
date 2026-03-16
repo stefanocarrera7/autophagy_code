@@ -5,7 +5,7 @@ from huggingface_hub import login
 from datasets import load_dataset
 import autophagy_clean as autophagy
 
-login(token="xxxx")
+login(token="xxx")
 
 # Modelli
 base_models = {
@@ -25,14 +25,14 @@ def is_valid_test(example):
 real_data = load_dataset("stefanocarrera/autophagy_D_mercury", split='train')
 # # TEST
 # real_data = real_data.shuffle(seed=42).select(range(5))
-prev_adapter_repo = "stefanocarrera/autophagycode_M_unsloth__Qwen3-0.6B-Base-unsloth-bnb-4bit_lr0.0001_chunk284_gen4"
+prev_adapter_repo = "stefanocarrera/autophagycode_M_unsloth__Qwen3-14B-Base-unsloth-bnb-4bit_lr0.0001_chunk142_gen8"
 
 print(f"Dataset originale: {len(real_data)} righe")
 real_data = real_data.filter(is_valid_test)
 print(f"Dataset filtrato: {len(real_data)} righe")
 
 # autofagia
-base_model_id = base_models.get('qwen_06b')
+base_model_id = base_models.get('qwen_14b')
 autophagy.autophagy(
     base_model_id=base_model_id,
     real_data_train=real_data,
@@ -41,6 +41,6 @@ autophagy.autophagy(
     g=10,
     n_solutions=1,
     lr=1e-4,
-    start_round=0,        # se maggiore di 0, deve esserci anche resume_model_id
-    resume_model_id=None
+    start_round=8,        # se maggiore di 0, deve esserci anche resume_model_id
+    resume_model_id=prev_adapter_repo
 )

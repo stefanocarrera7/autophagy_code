@@ -57,9 +57,11 @@ def evaluate_and_push_metrics(
             row_metrics["is_executable"] = True
             
         if not res['solutions_summary']:
-            row_metrics["error_type"] = res.get("errors", [])[0]
+            # Caso 1: SyntaxError
+            row_metrics["error_type"] = res.get("errors", [None])[0]
             
         else:
+            # Caso 2: Il codice è stato eseguito, analizziamo i test
             summary = res['solutions_summary'][0]
             
             ok_count = summary.get('ok', 0)
@@ -67,11 +69,14 @@ def evaluate_and_push_metrics(
             
             row_metrics["tests_passed"] = ok_count
             row_metrics["tests_failed"] = fail_count
-            
             row_metrics["test_run_time_ms"] = summary.get("time_ms", None)
+            
+            # Recuperiamo l'errore di runtime
+            row_metrics["error_type"] = summary.get("error_type")
             
             if fail_count == 0 and ok_count > 0:
                 row_metrics["is_correct"] = True
+                row_metrics["error_type"] = None # Se è corretto, non ci sono errori
 
         # Calcolo Metriche Halstead
         metrics_result = metrics.halstead_metrics(sol)
