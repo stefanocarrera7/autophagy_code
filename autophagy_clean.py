@@ -19,6 +19,7 @@ def autophagy(
     g: int = 10,
     n_solutions: int = 1,
     lr: float = 1e-4,
+    runs = 1,
     start_round: int = 0,                           # per riprendere da un round specifico in caso di interruzioni
     resume_model_id: str = None,                     # ultimo modello addestrato
     real_data_per_generation: float = None,          # se specificato, indica la percentuale di dati reali da utilizzare per ogni generazione
@@ -70,12 +71,13 @@ def autophagy(
 
         # --- Generazione del dataset sintetico per il test (HumanEval) ---
         print(f"\nGenerating synthetic test set for generation {t+1}...")
-        test_synth = generate_sample(test_data, gen_model, gen_tok, n_solutions=n_solutions)
-        test_data_id = f"stefanocarrera/autophagycode_D_{real_data_test}_{base_tag}_lr{lr}_chunk{chunk_size}_gen{t+1}_test"
-        test_synth.push_to_hub(test_data_id)
+        for r in range(1,runs+1):
+            test_synth = generate_sample(test_data, gen_model, gen_tok, n_solutions=n_solutions)
+            test_data_id = f"stefanocarrera/autophagycode_D_{real_data_test}_{base_tag}_lr{lr}_chunk{chunk_size}_gen{t+1}_test_run{r}"
+            test_synth.push_to_hub(test_data_id)
 
-        # --- Valutazione delle metriche sul test ---
-        evaluate_and_push_metrics(test_synth, real_data_test, base_tag, lr, t+1, verbose = False)
+            # Valutazione Metriche
+            evaluate_and_push_metrics(test_synth, real_data_test, base_tag, lr, t+1, verbose = False)
 
         if t == g - 1:
             print("\nUltima generazione completata, Pipeline terminata.")

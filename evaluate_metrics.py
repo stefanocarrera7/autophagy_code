@@ -21,7 +21,7 @@ def evaluate_and_push_metrics(
     
     for j in range(len(test_synth)):
         sol = str(test_synth["completion"][j])
-        # sol = remove_markdown(sol)
+        sol = remove_markdown(sol)
         # sol = light_cleanup(sol)
         
         entry = str(test_synth["entry_point"][j])

@@ -3,17 +3,16 @@ import re
 import pandas as pd
 
 def remove_markdown(text, target="```python"):
-    testo_lower = text.lower()
-    indice = testo_lower.find(target)
-    
-    if indice != -1:
-        return text[indice + len(target):].strip()
-    
-    indice_fallback = text.find("```")
-    if indice_fallback != -1:
-        return text[indice_fallback + 3:].strip()
+    text_lower = text.lower()
+    if "```python" in text_lower:
+        start_idx = text_lower.find("```python")
+        end_idx = text_lower.find("```", start_idx + 9)
+        text_lower = text_lower[start_idx + 9:end_idx]
+    elif "```" in text_lower:
+        end_idx = text_lower.find("```")
+        text_lower = text_lower[:end_idx]
 
-    return text.strip()
+    return text_lower.strip()
 
 def light_cleanup(code: str) -> str:
     """
