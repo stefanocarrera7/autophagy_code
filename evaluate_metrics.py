@@ -10,7 +10,6 @@ def evaluate_and_push_metrics(
     base_tag: str, 
     lr: float, 
     gen_round: int,
-    push = True,
     verbose = False
 ) -> None:
     """
@@ -98,12 +97,34 @@ def evaluate_and_push_metrics(
     # Salvataggio delle metriche su Hugging Face
     metrics_dataset = Dataset.from_list(generation_results)
     metrics_data_id = f"stefanocarrera/autophagycode_metrics_D_metrics_{real_data_test}_{base_tag}_lr{lr}_gen{gen_round}"
-    if push:
-        metrics_dataset.push_to_hub(metrics_data_id)
-        print(f"Pushed metrics to {metrics_data_id}")
-    else:
-        return metrics_dataset
-    
+    metrics_dataset.push_to_hub(metrics_data_id)
+    print(f"Pushed metrics to {metrics_data_id}")
+
     del generation_results
     del metrics_dataset
     gc.collect()
+
+
+def evaluate_correctness_only(test_synth: Dataset, real_data_test: str,verbose = False) -> list:
+    """
+    Ritorna un dizionario {task_id: is_correct} per un allineamento sicuro.
+    """
+    correctness_map = {}
+    
+    for row in test_synth:
+        sol = remove_markdown(str(row["completion"]))
+        entry = str(row["entry_point"])
+        test_cell = str(row["test"])
+        tid = row["task_id"]
+        
+        is_correct = False
+        if test_cell.strip() and test_cell != "nan":
+            res = test_solutions([sol], entry, test_cell, data_format=real_data_test)
+            if res['solutions_summary']:
+                summary = res['solutions_summary'][0]
+                if summary.get('fail', 0) == 0 and summary.get('ok', 0) > 0:
+                    is_correct = True
+        
+        correctness_map[tid] = is_correct
+        
+    return correctness_map
