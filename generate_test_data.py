@@ -2,7 +2,7 @@ from generate_sample import generate_sample
 import torch
 import gc
 from datasets import load_dataset
-from unsloth import FastLanguageModel # <--- Importazione Unsloth
+from unsloth import FastLanguageModel
 from huggingface_hub import login
 
 # 1. Autenticazione (Usa un NUOVO token con permessi di WRITE)
@@ -10,17 +10,15 @@ login("xxx")
 
 # 2. Carichiamo HumanEval una volta sola
 print("Caricamento dataset base (HumanEval)...")
-base_data = load_dataset("openai_humaneval", split="test")
+base_data = load_dataset("openai/openai_humaneval", split="test")
 
-num_generations = 0
-n_sol_per_prompt = 1
-max_seq_length = 512
+num_generations = 10
+n_sol_per_prompt = 5
+max_seq_length = 384
 test_data_id = "he"
 
-HF_USERNAME = "stefanocarrera"
-MODEL = "Qwen3-14B-Base-unsloth-bnb-4bit"
-DATASET_BASE_NAME = f"autophagycode_D_{test_data_id}_unsloth__{MODEL}_lr0.0001_chunck138_gen"
-
+B = 0.6
+MODEL = f"Qwen3-{B}B-Base-unsloth-bnb-4bit"
 
 for g in range(num_generations + 1):
     print(f"\n{'='*50}")
@@ -30,11 +28,11 @@ for g in range(num_generations + 1):
     # --- LOGICA DI SELEZIONE DEL MODELLO ---
     if g == 0:
         # Generazione 0: Modello originale
-        model_repo = "unsloth/Qwen3-14B-Base-unsloth-bnb-4bit"
+        model_repo = f"unsloth/Qwen3-{B}B-Base-unsloth-bnb-4bit"
     else:
-        model_repo = f"stefanocarrera/autophagycode_M_unsloth__{MODEL}_lr0.0001_gen{g}"
+        model_repo = f"stefanocarrera/autophagycode_M_unsloth__{MODEL}_lr0.0001_chunk142_gen{g}"
 
-    dataset_repo = f"{HF_USERNAME}/{DATASET_BASE_NAME}{g+1}"
+    dataset_repo = f"stefanocarrera/autophagycode_D_he_unsloth__{MODEL}_lr0.0001_chunk142_gen{g+1}_test_runs{n_sol_per_prompt}"
 
     print(f"Scaricamento e caricamento modello tramite Unsloth: {model_repo}")
     
@@ -42,8 +40,8 @@ for g in range(num_generations + 1):
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name = model_repo,
         max_seq_length = max_seq_length,
-        dtype = torch.float16, # <-- FORZATO per la tua Tesla T4 (Turing non supporta bfloat16)
-        load_in_4bit = True,   # <-- FONDAMENTALE per non superare i 15 GB di VRAM
+        dtype = torch.float16,
+        load_in_4bit = True,
     )
     # Abilita l'inferenza nativa 2x più veloce di Unsloth
     FastLanguageModel.for_inference(model)
@@ -65,9 +63,21 @@ for g in range(num_generations + 1):
 
     # 6. PULIZIA DELLA MEMORIA (Critico per evitare CUDA Out of Memory)
     print("Pulizia della VRAM per il prossimo modello...")
+    
+    # 1. Sposta esplicitamente il modello sulla CPU per svuotare brutalmente la VRAM
+    model.cpu()
+    
+    # 2. Elimina i riferimenti Python
     del model
     del tokenizer
+    
+    # 3. Doppio giro di garbage collection per intercettare riferimenti circolari ostinati
     gc.collect()
-    torch.cuda.empty_cache()
+    gc.collect()
+    
+    # 4. Svuota la cache interna di PyTorch
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        torch.cuda.ipc_collect() # Pulisce la memoria condivisa tra processi
 
 print("\nPipeline di autofagia completata per tutte le generazioni!")

@@ -10,6 +10,7 @@ def evaluate_and_push_metrics(
     base_tag: str, 
     lr: float, 
     gen_round: int,
+    push = True,
     verbose = False
 ) -> None:
     """
@@ -28,7 +29,7 @@ def evaluate_and_push_metrics(
         test_cell = str(test_synth["test"][j])
         
         row_metrics = {
-            "task_index": j,
+            "task_id": test_synth[j]['task_id'],
             "entry_point": entry,
             "is_executable": False,
             "is_correct": False,
@@ -97,9 +98,12 @@ def evaluate_and_push_metrics(
     # Salvataggio delle metriche su Hugging Face
     metrics_dataset = Dataset.from_list(generation_results)
     metrics_data_id = f"stefanocarrera/autophagycode_metrics_D_metrics_{real_data_test}_{base_tag}_lr{lr}_gen{gen_round}"
-    metrics_dataset.push_to_hub(metrics_data_id)
-    print(f"Pushed metrics to {metrics_data_id}")
-
+    if push:
+        metrics_dataset.push_to_hub(metrics_data_id)
+        print(f"Pushed metrics to {metrics_data_id}")
+    else:
+        return metrics_dataset
+    
     del generation_results
     del metrics_dataset
     gc.collect()

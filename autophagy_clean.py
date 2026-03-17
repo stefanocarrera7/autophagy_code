@@ -1,5 +1,5 @@
 from datasets import Dataset, load_dataset
-from generate_sample import generate_sample
+from generate_sample import generate_sample, correct_replace
 from train_unsloth import finetune_model
 from evaluate_metrics import evaluate_and_push_metrics
 from huggingface_hub import HfApi
@@ -22,6 +22,7 @@ def autophagy(
     runs = 1,
     start_round: int = 0,                           # per riprendere da un round specifico in caso di interruzioni
     resume_model_id: str = None,                     # ultimo modello addestrato
+    real_data_strategy: str = None,                    # 'correct' rimpiazza le soluzioni errate
     real_data_per_generation: float = None,          # se specificato, indica la percentuale di dati reali da utilizzare per ogni generazione
     ):
 
@@ -69,6 +70,7 @@ def autophagy(
             
         current_subset = sample.select(range(start_idx, end_idx))
 
+
         # --- Generazione del dataset sintetico per il test (HumanEval) ---
         print(f"\nGenerating synthetic test set for generation {t+1}...")
         for r in range(1,runs+1):
@@ -83,8 +85,18 @@ def autophagy(
             print("\nUltima generazione completata, Pipeline terminata.")
             break
 
+        # --- Generazione del dataset sintetico per il train ---
         print("\nStarting sample generation...")
-        synth = generate_sample(current_subset, gen_model, gen_tok, n_solutions=n_solutions, real_data_prop=real_data_per_generation)
+        synth = generate_sample(current_subset,
+                                gen_model, gen_tok,
+                                n_solutions=n_solutions,
+                                real_data_strategy=real_data_strategy,
+                                real_data_prop=real_data_per_generation)
+        
+        # --- Correct Replacemet (if chosen) ---
+        if real_data_strategy == 'correct':
+            synth = correct_replace(synth, current_subset, real_data_test, base_tag, lr, gen_round = t+1)
+
 
         # --- PULIZIA DELLA VRAM (PRE-TRAINING) ---
         print("\nPulizia della VRAM in corso prima del finetuning...")

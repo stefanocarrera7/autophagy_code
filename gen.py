@@ -157,7 +157,7 @@ def generate_solutions(prompt: str,
                        model,
                        tokenizer,
                        temperature:float = 0.6,
-                       max_new_tokens:int = 512,
+                       max_new_tokens:int = 384,
                        top_p = 0.9,
                        n_solutions: int = 1):
 
@@ -174,7 +174,7 @@ def generate_solutions(prompt: str,
         max_new_tokens=max_new_tokens,
         temperature=gen_temperature,
         top_p=gen_top_p,
-        do_sample=use_sampling,  # <-- Aggiornato
+        do_sample=use_sampling,
         num_return_sequences=n_solutions,
         eos_token_id=tokenizer.eos_token_id,
         pad_token_id=tokenizer.eos_token_id 
