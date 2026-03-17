@@ -1,5 +1,6 @@
 from datasets import Dataset
 from gen import generate_solutions
+from post_processing import remove_markdown
 import random
 from eval import test_solutions
 from evaluate_metrics import evaluate_correctness_only
@@ -65,13 +66,12 @@ def generate_sample(data,
     return Dataset.from_list(sample)
 
 
-def correct_replace(data: Dataset, original_data: Dataset, real_data_str: str, base_tag: str, lr: float, gen_round: int) -> Dataset:
+def original_correct_replace(data: Dataset, original_data: Dataset, real_data_str: str, base_tag: str, lr: float, gen_round: int) -> Dataset:
     """
     Sostituisce le soluzioni errate usando il task_id per garantire l'allineamento.
     """
     # mappa della correttezza {task_id: True/False}
     correctness_map = evaluate_correctness_only(data, real_data_str)
-    # mappa delle soluzioni originali {task_id: completion_corretta}
     original_mapping = {row['task_id']: row['completion'] for row in original_data}
 
     def replacement_logic(example):
@@ -82,3 +82,51 @@ def correct_replace(data: Dataset, original_data: Dataset, real_data_str: str, b
         return example
 
     return data.map(replacement_logic)
+
+
+def synth_correct_replace(synth_data: Dataset, real_data_test: str) -> Dataset:
+    """
+    Takes the synth data with n_solutions solutions generated per task and takes only the first correct among the generated per task.
+    If no correct solution has been generated for a given task, then the first is given
+    """
+    # raggruppiamo le righe per task_id mantenendo l'ordine di generazione
+    tasks_grouped = {}
+    for row in synth_data:
+        tid = row['task_id']
+        if tid not in tasks_grouped:
+            tasks_grouped[tid] = []
+        tasks_grouped[tid].append(row)
+
+    filtered_sample = []
+
+    # iteriamo su ogni gruppo di task
+    for tid, rows in tasks_grouped.items():
+        selected_row = rows[0]  # prendiamo la prima per default se falliscono tutte
+        
+        # valutiamo le soluzioni una per una
+        for row in rows:
+            sol = remove_markdown(str(row["completion"]))
+            entry = str(row["entry_point"])
+            test_cell = str(row["test"])
+            
+            is_correct = False
+            if test_cell.strip() and test_cell != "nan":
+                # eseguiamo il test solo su questa specifica soluzione
+                res = test_solutions([sol], entry, test_cell, data_format=real_data_test)
+                if res['solutions_summary']:
+                    summary = res['solutions_summary'][0]
+                    if summary.get('fail', 0) == 0 and summary.get('ok', 0) > 0:
+                        is_correct = True
+            
+            # Se la soluzione passa i test, la selezioniamo e INTERROMPIAMO il ciclo
+            if is_correct:
+                selected_row = row
+                break
+                
+        filtered_sample.append(selected_row)
+
+    # 4. Ricostruiamo e restituiamo il Dataset filtrato
+    return Dataset.from_list(filtered_sample)
+
+
+

@@ -1,5 +1,5 @@
 from datasets import Dataset, load_dataset
-from generate_sample import generate_sample, correct_replace
+from generate_sample import generate_sample, original_correct_replace, synth_correct_replace
 from train_unsloth import finetune_model
 from evaluate_metrics import evaluate_and_push_metrics
 from huggingface_hub import HfApi
@@ -95,7 +95,10 @@ def autophagy(
         
         # --- Correct Replacemet (if chosen) ---
         if real_data_strategy == 'correct':
-            synth = correct_replace(synth, current_subset, real_data_test, base_tag, lr, gen_round = t+1)
+            synth = original_correct_replace(synth, current_subset, real_data_test, base_tag, lr, gen_round = t+1)
+
+        if real_data_strategy == 'synth_correct':
+            synth = synth_correct_replace(synth)
 
 
         # --- PULIZIA DELLA VRAM (PRE-TRAINING) ---
@@ -123,8 +126,8 @@ def autophagy(
 
         print("\nEnd Finetuning...")
 
-        model_id = f"stefanocarrera/autophagycode_M_{base_tag}_lr{lr}_chunk{chunk_size}_gen{t+1}"
-        data_id  = f"stefanocarrera/autophagycode_D_train_{base_tag}_lr{lr}_chunk{chunk_size}_gen{t+1}"
+        model_id = f"stefanocarrera/autophagycode_M_{base_tag}_lr{lr}_chunk{chunk_size}_strategy_{real_data_strategy}_gen{t+1}"
+        data_id  = f"stefanocarrera/autophagycode_D_train_{base_tag}_lr{lr}_chunk{chunk_size}strategy_{real_data_strategy}_gen{t+1}"
 
         # --- Salvataggio su HF ---
         print("\nPushing to HuggingFace Hub...")

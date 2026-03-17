@@ -105,7 +105,7 @@ def evaluate_and_push_metrics(
     gc.collect()
 
 
-def evaluate_correctness_only(test_synth: Dataset, real_data_test: str,verbose = False) -> list:
+def evaluate_correctness_only(test_synth: Dataset, real_data_test: str,verbose = False) -> dict:
     """
     Ritorna un dizionario {task_id: is_correct} per un allineamento sicuro.
     """

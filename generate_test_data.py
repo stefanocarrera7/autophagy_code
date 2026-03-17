@@ -6,7 +6,7 @@ from unsloth import FastLanguageModel
 from huggingface_hub import login
 
 # 1. Autenticazione (Usa un NUOVO token con permessi di WRITE)
-login("xxx") 
+login("xxxx") 
 
 # 2. Carichiamo HumanEval una volta sola
 print("Caricamento dataset base (HumanEval)...")
@@ -14,10 +14,10 @@ base_data = load_dataset("openai/openai_humaneval", split="test")
 
 num_generations = 10
 n_sol_per_prompt = 5
-max_seq_length = 384
+max_seq_length = 300
 test_data_id = "he"
 
-B = 0.6
+B = 8
 MODEL = f"Qwen3-{B}B-Base-unsloth-bnb-4bit"
 
 for g in range(num_generations + 1):

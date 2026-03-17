@@ -156,7 +156,7 @@ def generate_solutions(prompt: str,
                        entry_point:str,
                        model,
                        tokenizer,
-                       temperature:float = 0.6,
+                       temperature:float = 1.0,
                        max_new_tokens:int = 384,
                        top_p = 0.9,
                        n_solutions: int = 1):
