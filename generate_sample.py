@@ -84,7 +84,7 @@ def original_correct_replace(data: Dataset, original_data: Dataset, real_data_st
     return data.map(replacement_logic)
 
 
-def synth_correct_replace(synth_data: Dataset, real_data_test: str) -> Dataset:
+def synth_correct_replace(synth_data: Dataset, real_data_test: str = 'he') -> Dataset:
     """
     Takes the synth data with n_solutions solutions generated per task and takes only the first correct among the generated per task.
     If no correct solution has been generated for a given task, then the first is given
