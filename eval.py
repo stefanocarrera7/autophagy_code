@@ -22,6 +22,8 @@ def wrapper_func_time(func, run, *args):
     t_runs = timeit.repeat(frozen_func, repeat=run, number=1)
     return min(t_runs)
 
+
+
 def test_solutions(solutions, entry_point, test_cell, data_format="he", test_runs=1, verbose=False):
     """
     Testa le soluzioni generate gestendo sia funzioni globali che metodi di classe Solution.
@@ -34,18 +36,15 @@ def test_solutions(solutions, entry_point, test_cell, data_format="he", test_run
     best_sol = solutions[0] if solutions else ""
     solutions_sum = []
 
-    # Preparazione dei dati di test
-    if data_format == 'evalplus':
-        n_tests = None
 
-    else:    # mbpp o he
-        asserts = [
-            line.strip() 
-            for line in test_cell.split("\n") 
-            if line.strip().startswith("assert ")
-        ]
-        n_tests = len(asserts)
+    asserts = [
+        line.strip() 
+        for line in test_cell.split("\n") 
+        if line.strip().startswith("assert ")
+    ]
+    n_tests = len(asserts)
 
+    # ---- CASO ERRORE: Nessun test trovato nella cella fornuta alla funzione
     if n_tests == 0 and n_tests is not None:
         if verbose:
             print(f"Nessun test trovato nella stringa:\n {test_cell}")
@@ -57,7 +56,8 @@ def test_solutions(solutions, entry_point, test_cell, data_format="he", test_run
             "c": 0,
             "errors": ["NoTestsFound"]
         }
-
+    
+    # ===== MAIN LOOP =====
     for i, sol in enumerate(solutions):
         timeouts = 0
         ns = {}
@@ -80,17 +80,6 @@ def test_solutions(solutions, entry_point, test_cell, data_format="he", test_run
             # se exec() non ha dato errori allora il modello ha generato una soluzione almeno eseguibile:
             n_executable += 1
 
-            # --- FASE 1.5: PROMOZIONE METODI CLASSE SOLUTION ---
-            # Se il modello ha usato 'class Solution', portiamo i suoi metodi nel namespace globale
-            # if 'Solution' in ns:
-            #     try:
-            #         sol_instance = ns['Solution']()
-            #         for attr_name in dir(sol_instance):
-            #             if not attr_name.startswith("__"):
-            #                 ns[attr_name] = getattr(sol_instance, attr_name)
-            #     except:
-            #         pass
-
             if entry_point not in ns:
                 errors.append("EntryPointNotFound")
                 if verbose:
@@ -107,44 +96,8 @@ def test_solutions(solutions, entry_point, test_cell, data_format="he", test_run
             ratio_he = 0.0
             sol_error = None 
             
-            if data_format == 'evalplus':
-                try:
-                    exec(test_cell, ns, ns)
-                except Exception:
-                    pass
-                check_func = ns.get('check')
-                try:
-                    signal.alarm(5) 
-                    try:
-                        if check_func:
-                            ratio_he = check_func(candidate_func)
-                            if ratio_he is None: ratio_he = 1.0 
-                        else:
-                            ratio_he = 1.0 
-                        if ratio_he >= 0.999:
-                            if check_func:
-                                sol_time = wrapper_func_time(check_func, test_runs, candidate_func)
-                            else:
-                                sol_time = wrapper_func_time(exec, test_runs, test_cell, ns, ns)
-                    finally:
-                        signal.alarm(0) 
-                        
-                except AssertionError:         # Cattura errori logici
-                    fail = 1
-                    ratio_he = 0.0
-                    sol_error = "AssertionError"
-                except TimeoutException:       # Cattura loop infiniti
-                    timeouts += 1
-                    fail = 1
-                    ratio_he = 0.0
-                    sol_error = "TimeoutException"
-                except Exception as e:         # Cattura TypeError, NameError, ecc.
-                    fail = 1
-                    ratio_he = 0.0
-                    sol_error = type(e).__name__
-                    if verbose: print(f"[SOLUTION {i}] Errore test: {e}")
 
-            elif data_format == 'mbpp':
+            if data_format == 'mbpp':
                 for a in asserts:
                     if timeouts >= 1: break
                     try:
@@ -174,7 +127,7 @@ def test_solutions(solutions, entry_point, test_cell, data_format="he", test_run
                         except:
                             continue
             
-            else: # data_format == 'he' NON PLUS
+            else: # data_format == 'he'
                 ns['candidate'] = candidate_func 
                 assert_times = []
                 t_start = None
@@ -206,14 +159,9 @@ def test_solutions(solutions, entry_point, test_cell, data_format="he", test_run
 
             # --- FASE 3: STATISTICHE ---
             sol_time_ms = sol_time * 1000 if sol_time is not False else None
-            if data_format == 'evalplus':
-                ok = ratio_he
-                fail = 1 - ratio_he
-                total = 1
-                ratio = ratio_he
-            else:
-                total = ok + fail
-                ratio = ok / total if total > 0 else 0
+
+            total = ok + fail
+            ratio = ok / total if total > 0 else 0
                 
             solutions_sum.append({
                 "sol": sol, 

@@ -10,7 +10,7 @@ def generate_sample(data,
                     model,
                     tokenizer,
                     n_solutions:int = 1,
-                    real_data_strategy: str = None,  # 'replace', 'augment'
+                    real_data_strategy: str = None,  # 'replace', 'augment', 'sc'
                     real_data_prop: float = 0):
 
     sample = []
@@ -99,10 +99,13 @@ def synth_correct_replace(synth_data: Dataset, real_data_test: str = 'he') -> Da
 
     filtered_sample = []
 
+    solution_replaced = {}
     # iteriamo su ogni gruppo di task
     for tid, rows in tasks_grouped.items():
         selected_row = rows[0]  # prendiamo la prima per default se falliscono tutte
+        solution_replaced[tid] = False
         
+        count = 0
         # valutiamo le soluzioni una per una
         for row in rows:
             sol = remove_markdown(str(row["completion"]))
@@ -121,12 +124,15 @@ def synth_correct_replace(synth_data: Dataset, real_data_test: str = 'he') -> Da
             # Se la soluzione passa i test, la selezioniamo e INTERROMPIAMO il ciclo
             if is_correct:
                 selected_row = row
+                if count > 0:
+                    solution_replaced[tid] = True
                 break
+
+            count += 1
                 
         filtered_sample.append(selected_row)
 
     # 4. Ricostruiamo e restituiamo il Dataset filtrato
-    return Dataset.from_list(filtered_sample)
-
+    return Dataset.from_list(filtered_sample), solution_replaced
 
 

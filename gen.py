@@ -3,167 +3,24 @@ import ast
 import torch
 from transformers import LogitsProcessor, LogitsProcessorList
 
-def remove_markdown(text: str) -> str:
-    """
-    Rimuove tutto ciò che c'è prima di ```python (incluso) e tutto ciò 
-    che c'è dopo il ``` di chiusura (se il modello si è ricordato di metterlo).
-    """
-    # Usiamo lower() solo per trovare l'indice, in caso scriva ```Python
-    text_lower = text.lower()
-    
-    # 1. Trova l'apertura e taglia via il prima
-    if "```python" in text_lower:
-        start_idx = text_lower.find("```python")
-        text = text[start_idx + 9:]  # Taglia tutto fino alla fine di "```python"
-    elif "```" in text:
-        start_idx = text.find("```")
-        text = text[start_idx + 3:]  # Taglia tutto fino alla fine di "```"
-
-    # 2. Se ha messo una chiusura, taglia via tutto il testo discorsivo dopo
-    if "```" in text:
-        end_idx = text.find("```")
-        text = text[:end_idx]
-        
-    return text.strip()
-
 class FP16OverflowClamper(LogitsProcessor):
     """
-    Previene il crash su Tesla T4 (FP16) bloccando i logit 
-    prima che superino il limite critico.
-    Capping a 1000.0 ci garantisce che anche dividendoli per temp basse come 0.2
-    (1000 / 0.2 = 5000), rimaniamo MOLTO sotto il limite del float16 (65504).
+    Versione ultra-robusta per Tesla T4:
+    1. Rimuove NaN e li sostituisce con valori neutri.
+    2. Sostituisce Inf con i limiti massimi.
+    3. Applica un clamp più stringente.
     """
     def __call__(self, input_ids, scores):
-        # Abbassato da 65000.0 a 1000.0
-        scores.clamp_(-1000.0, 1000.0)
+        # Sostituisce NaN con 0.0 e +/- Inf con +/- 100.0
+        scores.nan_to_num_(nan=0.0, posinf=100.0, neginf=-100.0)
+        # Clamp finale di sicurezza
+        scores.clamp_(-100.0, 100.0)
         return scores
     
-# def get_calls_in_function(func_node: ast.FunctionDef) -> set[str]:
-#     """
-#     Analizza il corpo di una funzione per trovare i nomi di altri metodi chiamati.
-#     Cerca pattern come 'self.method_name()' o 'method_name()' (se statico/annidato).
-#     """
-#     called_names = set()
-#     for node in ast.walk(func_node):
-#         if isinstance(node, ast.Call):
-#             # Caso: self.metodo(...)
-#             if isinstance(node.func, ast.Attribute) and \
-#                isinstance(node.func.value, ast.Name) and \
-#                node.func.value.id == 'self':
-#                 called_names.add(node.func.attr)
-#             # Caso: metodo(...) - raro in classi, ma possibile per funzioni annidate o globali
-#             elif isinstance(node.func, ast.Name):
-#                 called_names.add(node.func.id)
-#     return called_names
-
-# def extract_clean_code(prompt: str, generation: str, entry_point: str) -> str:
-#     """
-#     Combina prompt e generazione.
-#     Usa AST per:
-#     1. Trovare la class Solution.
-#     2. Identificare la funzione 'entry_point'.
-#     3. Mantenere SOLO l'entry_point e le funzioni helper che esso chiama.
-#     4. Rimuovere duplicati o funzioni allucinate non usate.
-#     """
-    
-#     # 1. Preparazione
-#     generation_clean = remove_markdown(generation)
-    
-#     # Unione Prompt + Generazione
-#     if generation_clean.strip().startswith(prompt.strip()):
-#         full_source = generation_clean
-#     else:
-#         full_source = prompt + "\n" + generation_clean
-
-#     # 2. Parsing con gestione errori (taglio dal fondo)
-#     lines = full_source.split('\n')
-#     tree = None
-#     while lines:
-#         try:
-#             current_code = "\n".join(lines)
-#             tree = ast.parse(current_code)
-#             break 
-#         except SyntaxError:
-#             lines.pop() 
-            
-#     if tree is None:
-#         return "" 
-
-#     valid_blocks = []
-    
-#     # --- A. IMPORT (Sempre in cima) ---
-#     for node in tree.body:
-#         if isinstance(node, (ast.Import, ast.ImportFrom)):
-#             valid_blocks.append(ast.unparse(node))
-
-#     # --- B. CLASSI (Logica Smart Entry Point) ---
-#     found_solution_class = False
-    
-#     for node in tree.body:
-#         if isinstance(node, ast.ClassDef):
-#             # Gestione specifica per class Solution
-#             if node.name == "Solution":
-#                 if found_solution_class: 
-#                     continue # Ignora classi Solution duplicate
-                
-#                 found_solution_class = True
-                
-#                 # Dizionario dei metodi disponibili nella classe
-#                 methods = {n.name: n for n in node.body if isinstance(n, ast.FunctionDef)}
-                
-#                 # Set dei metodi da mantenere
-#                 methods_to_keep = set()
-                
-#                 # 1. Cerchiamo l'entry point
-#                 if entry_point in methods:
-#                     queue = [entry_point]
-#                     methods_to_keep.add(entry_point)
-                    
-#                     # 2. Dependency Walking: Troviamo tutte le funzioni helper usate
-#                     while queue:
-#                         current_method_name = queue.pop(0)
-#                         current_method_node = methods[current_method_name]
-                        
-#                         # Trova chi chiama questo metodo
-#                         called_funcs = get_calls_in_function(current_method_node)
-                        
-#                         for called in called_funcs:
-#                             # Se la funzione chiamata esiste nella classe e non l'abbiamo ancora processata
-#                             if called in methods and called not in methods_to_keep:
-#                                 methods_to_keep.add(called)
-#                                 queue.append(called)
-                
-#                 else:
-#                     # FALLBACK: Se l'entry point non c'è (nome sbagliato dal modello?), 
-#                     # manteniamo il primo metodo e speriamo bene, oppure tutti.
-#                     # Per pulizia, prendiamo il primo.
-#                     if methods:
-#                         first_method = list(methods.keys())[0]
-#                         methods_to_keep.add(first_method)
-
-#                 # 3. Ricostruiamo il corpo della classe
-#                 new_body = []
-#                 # Manteniamo docstrings o assegnazioni (es. costanti di classe)
-#                 for item in node.body:
-#                     if not isinstance(item, ast.FunctionDef):
-#                         new_body.append(item)
-#                     elif item.name in methods_to_keep:
-#                         new_body.append(item)
-                
-#                 node.body = new_body
-#                 valid_blocks.append(ast.unparse(node))
-            
-#             else:
-#                 # Altre classi (es. TreeNode, ListNode) le teniamo così come sono
-#                 valid_blocks.append(ast.unparse(node))
-                
-#         # Funzioni Top-Level (se non c'è classe)
-#         elif isinstance(node, ast.FunctionDef):
-#              # Se il prompt non chiedeva una classe, controlliamo l'entry point anche qui
-#              if node.name == entry_point or (entry_point not in [n.name for n in tree.body if isinstance(n, ast.FunctionDef)]):
-#                  valid_blocks.append(ast.unparse(node))
-
-#     return "\n\n".join(valid_blocks)
+class Float32LogitsProcessor(LogitsProcessor):
+    """ Forza i logit in float32 prima del sampling per stabilità """
+    def __call__(self, input_ids, scores):
+        return scores.to(torch.float32)
 
 
 def generate_solutions(prompt: str,
@@ -181,8 +38,13 @@ def generate_solutions(prompt: str,
     gen_temperature = temperature if use_sampling else None
     gen_top_p = top_p if use_sampling else None
 
-    # Iniettiamo il salvavita per il Float16
-    processors = LogitsProcessorList([FP16OverflowClamper()])
+    # Iniettiamo i salvavita in ordine:
+    # 1. Pulizia dei valori folli (NaN/Inf)
+    # 2. Casting a Float32 per calcoli precisi nel sampling
+    processors = LogitsProcessorList([
+        FP16OverflowClamper(),
+        Float32LogitsProcessor()
+    ])
 
     outputs = model.generate(
         **inputs,

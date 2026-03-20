@@ -2,17 +2,28 @@
 import re
 import pandas as pd
 
-def remove_markdown(text, target="```python"):
+def remove_markdown(text: str) -> str:
+    """
+    Rimuove tutto ciò che c'è prima di ```python (incluso) e tutto ciò 
+    che c'è dopo il ``` di chiusura (se il modello si è ricordato di metterlo).
+    """
+    # Usiamo lower() solo per trovare l'indice, in caso scriva ```Python
     text_lower = text.lower()
+    
+    # 1. Trova l'apertura e taglia via il prima
     if "```python" in text_lower:
         start_idx = text_lower.find("```python")
-        end_idx = text_lower.find("```", start_idx + 9)
-        text_lower = text_lower[start_idx + 9:end_idx]
-    elif "```" in text_lower:
-        end_idx = text_lower.find("```")
-        text_lower = text_lower[:end_idx]
+        text = text[start_idx + 9:]  # Taglia tutto fino alla fine di "```python"
+    elif "```" in text:
+        start_idx = text.find("```")
+        text = text[start_idx + 3:]  # Taglia tutto fino alla fine di "```"
 
-    return text_lower.strip()
+    # 2. Se ha messo una chiusura, taglia via tutto il testo discorsivo dopo
+    if "```" in text:
+        end_idx = text.find("```")
+        text = text[:end_idx]
+        
+    return text.strip()
 
 def light_cleanup(code: str) -> str:
     """

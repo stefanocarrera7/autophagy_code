@@ -10,7 +10,8 @@ def evaluate_and_push_metrics(
     base_tag: str, 
     lr: float, 
     gen_round: int,
-    verbose = False
+    verbose = False,
+    test_or_train = 'test'
 ) -> None:
     """
     Valuta il dataset generato, estrae le metriche Halstead e il Maintainability Index,
@@ -96,8 +97,12 @@ def evaluate_and_push_metrics(
 
     # Salvataggio delle metriche su Hugging Face
     metrics_dataset = Dataset.from_list(generation_results)
-    metrics_data_id = f"stefanocarrera/autophagycode_metrics_D_metrics_{real_data_test}_{base_tag}_lr{lr}_gen{gen_round}"
-    metrics_dataset.push_to_hub(metrics_data_id)
+    if test_or_train == 'test':
+        metrics_data_id = f"stefanocarrera/autophagycode_D_metrics_{real_data_test}_{base_tag}_lr{lr}_g{gen_round}"
+        metrics_dataset.push_to_hub(metrics_data_id)
+    elif test_or_train == 'train':
+        metrics_data_id = f"stefanocarrera/autophagycode_D_metrics_train_{base_tag}_lr{lr}_g{gen_round}"
+        metrics_dataset.push_to_hub(metrics_data_id)
     print(f"Pushed metrics to {metrics_data_id}")
 
     del generation_results

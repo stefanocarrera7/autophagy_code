@@ -8,8 +8,18 @@ import gc
 from unsloth import FastLanguageModel
 
 def _sanitize_repo_name(text: str) -> str:
-    """Sanitizza il nome del repository sostituendo caratteri non validi con underscore."""
-    return text.replace("/", "__").replace(" ", "_")
+    """Sanitizza e accorcia il nome del repository per rispettare il limite di 96 char di HF."""
+    # 1. Rimuove l'organizzazione (es. 'unsloth/')
+    if "/" in text:
+        text = text.split("/")[-1]
+    
+    # 2. Rimuove suffissi lunghi standard
+    text = text.replace("-unsloth-bnb-4bit", "")
+    text = text.replace("-bnb-4bit", "")
+    text = text.replace("-Base", "")
+    text = text.replace("-Instruct", "")
+    
+    return text.replace(" ", "_")
 
 def autophagy(
     base_model_id: str,
@@ -21,7 +31,7 @@ def autophagy(
     lr: float = 1e-4,
     start_round: int = 0,                           # per riprendere da un round specifico in caso di interruzioni
     resume_model_id: str = None,                     # ultimo modello addestrato
-    real_data_strategy: str = None,                    # 'correct' rimpiazza le soluzioni errate
+    real_data_strategy: str = None,                    # 'correct' rimpiazza le soluzioni errate, 'sc' (synth_correct) considera tra le n_solution solo quella corretta nel fine tuning
     real_data_per_generation: float = None,          # se specificato, indica la percentuale di dati reali da utilizzare per ogni generazione
     ):
 
@@ -74,8 +84,10 @@ def autophagy(
         # --- Generazione del dataset per il test (HumanEval) ---
         print(f"\nGenerating synthetic test set for generation {t+1}...")
         test_synth = generate_sample(test_data, gen_model, gen_tok, n_solutions=n_solutions)
-        test_data_id = f"stefanocarrera/autophagycode_D_{real_data_test}_{base_tag}_strategy_{real_data_strategy}_gen{t+1}_test"
+
+        test_data_id = f"stefanocarrera/autophagycode_D_{real_data_test}_{base_tag}_strategy_{real_data_strategy}_g{t+1}"
         test_synth.push_to_hub(test_data_id)
+
 
         # --- Valutazione Metriche ----
         evaluate_and_push_metrics(test_synth, real_data_test, base_tag, lr, t+1, verbose = False)
@@ -96,8 +108,8 @@ def autophagy(
         if real_data_strategy == 'correct':
             synth = original_correct_replace(synth, current_subset, real_data_test, base_tag, lr, gen_round = t+1)
 
-        if real_data_strategy == 'synth_correct':
-            synth = synth_correct_replace(synth, real_data_test)
+        if real_data_strategy == 'sc':
+            synth, _ = synth_correct_replace(synth, real_data_test)
 
 
         # --- PULIZIA DELLA VRAM (PRE-TRAINING) ---
@@ -125,8 +137,8 @@ def autophagy(
 
         print("\nEnd Finetuning...")
 
-        model_id = f"stefanocarrera/autophagycode_M_{base_tag}_lr{lr}_chunk{chunk_size}_strategy_{real_data_strategy}_gen{t+1}"
-        data_id  = f"stefanocarrera/autophagycode_D_train_{base_tag}_lr{lr}_chunk{chunk_size}_strategy_{real_data_strategy}_gen{t+1}"
+        model_id = f"stefanocarrera/autophagycode_M_{base_tag}_lr{lr}_c{chunk_size}_{real_data_strategy}_g{t+1}"
+        data_id  = f"stefanocarrera/autophagycode_D_train_{base_tag}_lr{lr}_c{chunk_size}_{real_data_strategy}_g{t+1}"
 
         # --- Salvataggio su HF ---
         print("\nPushing to HuggingFace Hub...")

@@ -10,7 +10,6 @@ login(token="xxx")
 # Modelli
 base_models = {
     'llama': "unsloth/Meta-Llama-3.1-8B",
-    'qwen' : 'unsloth/Qwen2.5-Coder-7B-Instruct-bnb-4bit',
     "qwen_06b" : "unsloth/Qwen3-0.6B-Base-unsloth-bnb-4bit",
     "qwen_4b" : "unsloth/Qwen3-4B-Base-unsloth-bnb-4bit",
     "qwen_8b" : "unsloth/Qwen3-8B-Base-unsloth-bnb-4bit",
@@ -25,7 +24,7 @@ def is_valid_test(example):
 real_data = load_dataset("stefanocarrera/autophagy_D_mercury", split='train')
 # # TEST
 # real_data = real_data.shuffle(seed=42).select(range(5))
-prev_adapter_repo = "stefanocarrera/autophagycode_M_unsloth__Qwen3-14B-Base-unsloth-bnb-4bit_lr0.0001_chunk142_gen8"
+# prev_adapter_repo = "stefanocarrera/autophagycode_M_unsloth__Qwen3-14B-Base-unsloth-bnb-4bit_lr0.0001_chunk142_gen8"
 
 print(f"Dataset originale: {len(real_data)} righe")
 real_data = real_data.filter(is_valid_test)
@@ -41,7 +40,7 @@ autophagy.autophagy(
     g=10,
     n_solutions=3,
     lr=1e-4,
-    real_data_strategy="synth_correct",
+    real_data_strategy="sc",
     start_round=0,                      # se maggiore di 0, deve esserci anche resume_model_id
     resume_model_id=None
 )
