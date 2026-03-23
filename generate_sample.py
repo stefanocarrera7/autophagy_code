@@ -10,7 +10,7 @@ def generate_sample(data,
                     model,
                     tokenizer,
                     n_solutions:int = 1,
-                    real_data_strategy: str = None,  # 'replace', 'augment', 'sc'
+                    real_data_strategy: str = 'trust',  # 'replace', 'augment', 'sc', 'trust'
                     real_data_prop: float = 0):
 
     sample = []
@@ -66,7 +66,7 @@ def generate_sample(data,
     return Dataset.from_list(sample)
 
 
-def original_correct_replace(data: Dataset, original_data: Dataset, real_data_str: str, base_tag: str, lr: float, gen_round: int) -> Dataset:
+def original_correct_replace(data: Dataset, original_data: Dataset, real_data_str: str) -> Dataset:
     """
     Sostituisce le soluzioni errate usando il task_id per garantire l'allineamento.
     """
@@ -76,8 +76,7 @@ def original_correct_replace(data: Dataset, original_data: Dataset, real_data_st
 
     def replacement_logic(example):
         tid = example['task_id']
-        
-        if not correctness_map.get(tid, False):
+        if not correctness_map.get(tid, False) and original_mapping[tid]:
             example['completion'] = original_mapping[tid]
         return example
 

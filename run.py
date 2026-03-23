@@ -31,16 +31,17 @@ real_data = real_data.filter(is_valid_test)
 print(f"Dataset filtrato: {len(real_data)} righe")
 
 # autofagia
-base_model_id = base_models.get('qwen_8b')
+base_model_id = base_models.get('qwen_14b')
 autophagy.autophagy(
     base_model_id=base_model_id,
     real_data_train=real_data,
     real_data_test= "he",
     model_type = "qwen",
     g=10,
-    n_solutions=3,
+    n_solutions=1,
     lr=1e-4,
-    real_data_strategy="sc",
+    real_data_strategy="trust",
     start_round=0,                      # se maggiore di 0, deve esserci anche resume_model_id
-    resume_model_id=None
+    resume_model_id=None,
+    skip_first_test=False
 )

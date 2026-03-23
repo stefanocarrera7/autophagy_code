@@ -6,21 +6,22 @@ from unsloth import FastLanguageModel
 from huggingface_hub import login
 
 # 1. Autenticazione (Usa un NUOVO token con permessi di WRITE)
-login("xxxx") 
+login("xxx") 
 
 # 2. Carichiamo HumanEval una volta sola
 print("Caricamento dataset base (HumanEval)...")
 base_data = load_dataset("openai/openai_humaneval", split="test")
 
 num_generations = 10
-n_sol_per_prompt = 5
+n_sol_per_prompt = 3
 max_seq_length = 300
 test_data_id = "he"
 
 B = 8
-MODEL = f"Qwen3-{B}B-Base-unsloth-bnb-4bit"
+MODEL = f"Qwen3-{B}B"
+real_data_strategy = 'correct'
 
-for g in range(num_generations + 1):
+for g in range(1,num_generations):
     print(f"\n{'='*50}")
     print(f"   AVVIO GENERAZIONE E VALUTAZIONE [{g}]")
     print(f"{'='*50}")
@@ -30,9 +31,9 @@ for g in range(num_generations + 1):
         # Generazione 0: Modello originale
         model_repo = f"unsloth/Qwen3-{B}B-Base-unsloth-bnb-4bit"
     else:
-        model_repo = f"stefanocarrera/autophagycode_M_unsloth__{MODEL}_lr0.0001_chunk142_gen{g}"
+        model_repo = f"stefanocarrera/autophagycode_M_{MODEL}_lr1e-05_c142_correct_g{g}"
 
-    dataset_repo = f"stefanocarrera/autophagycode_D_he_unsloth__{MODEL}_lr0.0001_chunk142_gen{g+1}_test_runs{n_sol_per_prompt}"
+    dataset_repo = f"stefanocarrera/autophagycode_D_he_{MODEL}_strategy_{real_data_strategy}_g{g+1}"
 
     print(f"Scaricamento e caricamento modello tramite Unsloth: {model_repo}")
     

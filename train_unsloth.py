@@ -9,12 +9,12 @@ def finetune_model(
     base_model_id: str,
     output_dir: str = "unsloth-code-ft",
     model_type: str = "llama",
-    num_train_epochs: int = 2,
-    lr: float = 1e-4,
+    num_train_epochs: int = 1,
+    lr: float = 1e-5,
     batch_size: int = 2,
     grad_accum: int = 8,
-    max_length: int = 1024,
-    max_seq_length: int = 1024,    
+    max_length: int = 750,
+    max_seq_length: int = 750,    
     lora_r: int = 16,
     lora_alpha: int = 16,
     lora_dropout: float = 0,
@@ -93,12 +93,9 @@ def finetune_model(
     # 3) Preparazione Dati con Template Dinamico
     
     def formatting_prompts_func(ex):
-        prompt_text = ex['prompt']
         completion_text = ex['completion']
-
-        # APPROCCIO "COMPLETION-ONLY": 
-        # Attacchiamo il prompt direttamente alla completion, seguito dal token di fine.
-        text = prompt_text + completion_text + EOS_TOKEN
+        # La completion contiene già la firma, la docstring e il codice finale.
+        text = completion_text + EOS_TOKEN
             
         return {"text": text}
 
@@ -120,8 +117,8 @@ def finetune_model(
         bf16 = is_bfloat16_supported(),
         fp16 = not is_bfloat16_supported(),
         optim = "adamw_8bit",
-        lr_scheduler_type = "linear",
-        warmup_steps = 5,
+        lr_scheduler_type = "constant",
+        warmup_ratio = 0.1,
         report_to = "none",
         seed = 42,
         max_grad_norm = 1.0, 

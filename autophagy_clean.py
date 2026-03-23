@@ -3,6 +3,8 @@ from generate_sample import generate_sample, original_correct_replace, synth_cor
 from train_unsloth import finetune_model
 from evaluate_metrics import evaluate_and_push_metrics
 from huggingface_hub import HfApi
+import os
+import shutil
 import torch
 import gc
 from unsloth import FastLanguageModel
@@ -28,22 +30,30 @@ def autophagy(
     model_type: str = "llama", # 'llama' o 'qwen'
     g: int = 10,
     n_solutions: int = 1,
-    lr: float = 1e-4,
+    lr: float = 1e-5,
     start_round: int = 0,                           # per riprendere da un round specifico in caso di interruzioni
     resume_model_id: str = None,                     # ultimo modello addestrato
-    real_data_strategy: str = None,                    # 'correct' rimpiazza le soluzioni errate, 'sc' (synth_correct) considera tra le n_solution solo quella corretta nel fine tuning
+    real_data_strategy: str = 'trust',                    # 'correct' rimpiazza le soluzioni errate, 'sc' (synth_correct) considera tra le n_solution solo quella corretta nel fine tuning
     real_data_per_generation: float = None,          # se specificato, indica la percentuale di dati reali da utilizzare per ogni generazione
+    skip_first_test = False,
     ):
 
     sample = real_data_train
     base_tag = _sanitize_repo_name(base_model_id)
     prev_adapter_repo = resume_model_id
-    chunk_size = int(len(sample) / g)    
+    chunk_size = int(len(sample) / g)
+
+    if real_data_strategy == 'sc':
+        n_sol = n_solutions
+    else:
+        n_sol = 1
 
     # ===== SCARICARE HE PER TEST ======
     if real_data_test == "he":
         print("\nLoading HumanEval test set...")
         test_data = load_dataset("openai/openai_humaneval", split="test")
+        #### TEST
+        # test_data = test_data.shuffle(seed=42).select(range(5))
 
     if real_data_test == "evalplus":
         print("\nLoading EvalPlus test set...")
@@ -62,7 +72,7 @@ def autophagy(
         print(f"Loading model for generation via Unsloth: {current_model_id}")
         gen_model, gen_tok = FastLanguageModel.from_pretrained(
             model_name = current_model_id,
-            max_seq_length = 800,
+            max_seq_length = 750,
             dtype = torch.float16,
             load_in_4bit = True,
             device_map = {"": 0},
@@ -82,15 +92,16 @@ def autophagy(
 
 
         # --- Generazione del dataset per il test (HumanEval) ---
-        print(f"\nGenerating synthetic test set for generation {t+1}...")
-        test_synth = generate_sample(test_data, gen_model, gen_tok, n_solutions=n_solutions)
+        if skip_first_test == False or (skip_first_test == True and t != start_round):
+            
+            print(f"\nGenerating synthetic test set for generation {t+1}...")
+            test_synth = generate_sample(test_data, gen_model, gen_tok, n_solutions=n_solutions)
 
-        test_data_id = f"stefanocarrera/autophagycode_D_{real_data_test}_{base_tag}_strategy_{real_data_strategy}_g{t+1}"
-        test_synth.push_to_hub(test_data_id)
+            test_data_id = f"stefanocarrera/autophagycode_D_{real_data_test}_{base_tag}_strategy_{real_data_strategy}_g{t+1}"
+            test_synth.push_to_hub(test_data_id)
 
-
-        # --- Valutazione Metriche ----
-        evaluate_and_push_metrics(test_synth, real_data_test, base_tag, lr, t+1, verbose = False)
+            # --- Valutazione Metriche ----
+            evaluate_and_push_metrics(test_synth, real_data_test, base_tag, lr, t+1, verbose = False)
 
         if t == g - 1:
             print("\nUltima generazione completata, Pipeline terminata.")
@@ -100,13 +111,13 @@ def autophagy(
         print("\nStarting sample generation...")
         synth = generate_sample(current_subset,
                                 gen_model, gen_tok,
-                                n_solutions=n_solutions,
+                                n_solutions=n_sol,
                                 real_data_strategy=real_data_strategy,
                                 real_data_prop=real_data_per_generation)
         
         # --- Correct Replacemet (if chosen) ---
         if real_data_strategy == 'correct':
-            synth = original_correct_replace(synth, current_subset, real_data_test, base_tag, lr, gen_round = t+1)
+            synth = original_correct_replace(synth, current_subset, real_data_test)
 
         if real_data_strategy == 'sc':
             synth, _ = synth_correct_replace(synth, real_data_test)
@@ -149,6 +160,12 @@ def autophagy(
 
         # Aggiorniamo i riferimenti per il prossimo giro
         prev_adapter_repo = model_id
+
+        # Pulizia del disco
+        print("\nCancellazione dei file locali dell'adapter per liberare spazio su disco...")
+        if os.path.exists(ft_dir):
+            shutil.rmtree(ft_dir)
+            print(f"Cartella {ft_dir} eliminata con successo.")
         
         # --- 7. PULIZIA DELLA VRAM (POST-TRAINING) EXTREME ---
         print("\nPulizia della VRAM in corso prima del prossimo round di generazione...")

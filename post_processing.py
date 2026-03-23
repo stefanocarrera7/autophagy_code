@@ -4,26 +4,37 @@ import pandas as pd
 
 def remove_markdown(text: str) -> str:
     """
-    Rimuove tutto ciò che c'è prima di ```python (incluso) e tutto ciò 
-    che c'è dopo il ``` di chiusura (se il modello si è ricordato di metterlo).
+    Versione ottimizzata per la tesi: estrae il codice fermandosi 
+    al primo segnale di chiusura (```) o di testo naturale (###, Explanation).
     """
-    # Usiamo lower() solo per trovare l'indice, in caso scriva ```Python
-    text_lower = text.lower()
+    start_idx = 0
+    if text.strip().startswith("```python"):
+        start_idx = text.find("```python") + 9
+    elif text.strip().startswith("```"):
+        start_idx = text.find("```") + 3
     
-    # 1. Trova l'apertura e taglia via il prima
-    if "```python" in text_lower:
-        start_idx = text_lower.find("```python")
-        text = text[start_idx + 9:]  # Taglia tutto fino alla fine di "```python"
-    elif "```" in text:
-        start_idx = text.find("```")
-        text = text[start_idx + 3:]  # Taglia tutto fino alla fine di "```"
+    # Lavoriamo sulla parte che (teoricamente) contiene solo codice
+    code_part = text[start_idx:].strip()
 
-    # 2. Se ha messo una chiusura, taglia via tutto il testo discorsivo dopo
-    if "```" in text:
-        end_idx = text.find("```")
-        text = text[:end_idx]
-        
-    return text.strip()
+    stop_signals = [
+        "```",             # Le backtick di chiusura (il tuo caso critico)
+        "###",             # Titoli markdown per spiegazioni
+    ]
+
+    # Cerchiamo la posizione più vicina (minima) tra tutti i segnali di stop
+    end_idx = len(code_part) # Di default, la fine è tutto il testo
+    
+    for signal in stop_signals:
+        pos = code_part.find(signal)
+        if pos != -1:
+            # Se troviamo un segnale, aggiorniamo end_idx solo se è più vicino dell'attuale
+            end_idx = min(end_idx, pos)
+
+    # Tagliamo e puliamo
+    final_code = code_part[:end_idx]
+    
+    return final_code.strip()
+
 
 def light_cleanup(code: str) -> str:
     """

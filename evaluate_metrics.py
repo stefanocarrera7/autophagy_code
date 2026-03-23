@@ -11,7 +11,8 @@ def evaluate_and_push_metrics(
     lr: float, 
     gen_round: int,
     verbose = False,
-    test_or_train = 'test'
+    test_or_train = 'test',
+    strategy = 'trust'
 ) -> None:
     """
     Valuta il dataset generato, estrae le metriche Halstead e il Maintainability Index,
@@ -98,10 +99,10 @@ def evaluate_and_push_metrics(
     # Salvataggio delle metriche su Hugging Face
     metrics_dataset = Dataset.from_list(generation_results)
     if test_or_train == 'test':
-        metrics_data_id = f"stefanocarrera/autophagycode_D_metrics_{real_data_test}_{base_tag}_lr{lr}_g{gen_round}"
+        metrics_data_id = f"stefanocarrera/autophagycode_D_metrics_{real_data_test}_{base_tag}_lr{lr}_{strategy}_g{gen_round}"
         metrics_dataset.push_to_hub(metrics_data_id)
     elif test_or_train == 'train':
-        metrics_data_id = f"stefanocarrera/autophagycode_D_metrics_train_{base_tag}_lr{lr}_g{gen_round}"
+        metrics_data_id = f"stefanocarrera/autophagycode_D_metrics_train_{base_tag}_lr{lr}_{strategy}_g{gen_round}"
         metrics_dataset.push_to_hub(metrics_data_id)
     print(f"Pushed metrics to {metrics_data_id}")
 
@@ -110,9 +111,9 @@ def evaluate_and_push_metrics(
     gc.collect()
 
 
-def evaluate_correctness_only(test_synth: Dataset, real_data_test: str,verbose = False) -> dict:
+def evaluate_correctness_only(test_synth: Dataset, real_data_test: str) -> dict:
     """
-    Ritorna un dizionario {task_id: is_correct} per un allineamento sicuro.
+    Ritorna un dizionario {task_id: is_correct:bool} per un allineamento sicuro.
     """
     correctness_map = {}
     
