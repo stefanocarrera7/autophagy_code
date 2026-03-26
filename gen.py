@@ -49,6 +49,7 @@ def generate_solutions(prompt: str,
     outputs = model.generate(
         **inputs,
         max_new_tokens=max_new_tokens,
+        min_new_tokens=3,
         temperature=gen_temperature,
         top_p=gen_top_p,
         do_sample=use_sampling,

@@ -36,6 +36,21 @@ def remove_markdown(text: str) -> str:
     return final_code.strip()
 
 
+def remove_repetition(text:str, entry_point:str):
+    """
+    Remove repetition behaviour of LLMs by taking the first entry_point function
+    !! Aggressive strategy that cut everrything after the second def starting from def entrty_point()
+    """
+    start_to_search = max(0, text.find(f'def {entry_point}('))
+
+    end = text.find('def ', start_to_search + len(f'def {entry_point}('))
+    if end > 0:
+        text = text[:end]
+    
+    return text
+
+
+
 def light_cleanup(code: str) -> str:
     """
     Rimuove firme di funzioni duplicate leggendo il codice riga per riga.

@@ -8,7 +8,8 @@ def finetune_model(
     dataset: Dataset,
     base_model_id: str,
     output_dir: str = "unsloth-code-ft",
-    model_type: str = "llama",
+    model_type: str = "qwen",
+    ft_dataset_type: str = "trust",
     num_train_epochs: int = 1,
     lr: float = 1e-5,
     batch_size: int = 2,
@@ -92,14 +93,24 @@ def finetune_model(
 
     # 3) Preparazione Dati con Template Dinamico
     
-    def formatting_prompts_func(ex):
+    def formatting_prompts_code(ex):
         completion_text = ex['completion']
         # La completion contiene già la firma, la docstring e il codice finale.
         text = completion_text + EOS_TOKEN
             
         return {"text": text}
+    
+    def formatting_prompts_text(ex):
+        testo_naturale = ex['text'] 
 
-    ds = dataset.map(formatting_prompts_func)
+        text = testo_naturale + EOS_TOKEN
+            
+        return {"text": text}
+
+    if ft_dataset_type != "text":
+        ds = dataset.map(formatting_prompts_code)
+    else:
+        ds = dataset.map(formatting_prompts_text)
     
     columns_to_keep = ["text"]
     ds = ds.remove_columns([c for c in ds.column_names if c not in columns_to_keep])

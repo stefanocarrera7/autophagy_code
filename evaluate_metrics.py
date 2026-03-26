@@ -1,6 +1,6 @@
 from datasets import Dataset
 import metrics
-from post_processing import remove_markdown, light_cleanup
+from post_processing import remove_markdown, light_cleanup, remove_repetition
 from eval import test_solutions
 import gc
 
@@ -28,6 +28,14 @@ def evaluate_and_push_metrics(
         
         entry = str(test_synth["entry_point"][j])
         test_cell = str(test_synth["test"][j])
+
+        # Quante funzioni ha definito la soluzione? - Per capire la possibile ripetizione
+        n_def = sol.count("def ")
+        n_entry = sol.count("def " + entry + "(")
+
+        # Se c'e stata una ripetizione, usiamo la logica definita in remove_repetitions
+        if n_def > 3 or n_entry > 1:
+            sol = remove_repetition(sol, entry)
         
         row_metrics = {
             "task_id": test_synth[j]['task_id'],
@@ -43,13 +51,16 @@ def evaluate_and_push_metrics(
             "halstead_volume": None,
             "halstead_difficulty": None,
             "halstead_effort": None,
-            "maintainability_index": None
+            "maintainability_index": None,
+            "n_func_defined": n_def,
+            "entry_point_repeated": n_entry > 1
         }
 
         if test_cell == "nan" or not test_cell.strip():
             row_metrics["error_type"] = "NoTestData"
             generation_results.append(row_metrics)
             continue
+
 
         # Esecuzione test
         res = test_solutions([sol], entry, test_cell, data_format=real_data_test, verbose=verbose)
@@ -93,6 +104,9 @@ def evaluate_and_push_metrics(
         mi_result = metrics.original_MI(sol)
         if mi_result is not None:
             row_metrics["maintainability_index"] = mi_result
+
+        if row_metrics['error_type'] == 'SyntaxError' and (row_metrics["entry_point_repeated"] or row_metrics['n_func_defined'] > 3):
+            row_metrics['error_type'] = 'MaxToken'
 
         generation_results.append(row_metrics)
 

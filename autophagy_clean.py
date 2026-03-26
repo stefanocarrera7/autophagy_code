@@ -33,7 +33,7 @@ def autophagy(
     lr: float = 1e-5,
     start_round: int = 0,                           # per riprendere da un round specifico in caso di interruzioni
     resume_model_id: str = None,                     # ultimo modello addestrato
-    real_data_strategy: str = 'trust',                    # 'correct' rimpiazza le soluzioni errate, 'sc' (synth_correct) considera tra le n_solution solo quella corretta nel fine tuning
+    real_data_strategy: str = 'trust',              # 'correct' rimpiazza le soluzioni errate, 'trust' rimpiazza qualsiasi sia la soluzione, 'text' fa il ft con dati testuali
     real_data_per_generation: float = None,          # se specificato, indica la percentuale di dati reali da utilizzare per ogni generazione
     skip_first_test = False,
     ):
@@ -42,6 +42,10 @@ def autophagy(
     base_tag = _sanitize_repo_name(base_model_id)
     prev_adapter_repo = resume_model_id
     chunk_size = int(len(sample) / g)
+
+    if real_data_strategy == 'text':
+        print("\nLoading text data from hf...")
+        text_data = load_dataset("stefanocarrera/autophagy_D_text_S", split='train')
 
     if real_data_strategy == 'sc':
         n_sol = n_solutions
@@ -79,17 +83,6 @@ def autophagy(
         )
         FastLanguageModel.for_inference(gen_model)
 
-        # --- Calcolo degli indici per il subset del round --- 
-        start_idx = t * chunk_size
-        end_idx = min((t + 1) * chunk_size, len(sample)) # Impedisce l'Out of Bounds
-        
-        # Se start_idx supera la lunghezza del dataset, interrompiamo il ciclo
-        if start_idx >= len(sample):
-            print("\nDati di training esauriti per il prossimo round. Interruzione della pipeline.")
-            break
-            
-        current_subset = sample.select(range(start_idx, end_idx))
-
 
         # --- Generazione del dataset per il test (HumanEval) ---
         if skip_first_test == False or (skip_first_test == True and t != start_round):
@@ -101,26 +94,45 @@ def autophagy(
             test_synth.push_to_hub(test_data_id)
 
             # --- Valutazione Metriche ----
-            evaluate_and_push_metrics(test_synth, real_data_test, base_tag, lr, t+1, verbose = False)
+            # evaluate_and_push_metrics(test_synth, real_data_test, base_tag, lr, t+1, verbose = False)
 
         if t == g - 1:
             print("\nUltima generazione completata, Pipeline terminata.")
             break
 
-        # --- Generazione del dataset sintetico per il train ---
-        print("\nStarting sample generation...")
-        synth = generate_sample(current_subset,
-                                gen_model, gen_tok,
-                                n_solutions=n_sol,
-                                real_data_strategy=real_data_strategy,
-                                real_data_prop=real_data_per_generation)
-        
-        # --- Correct Replacemet (if chosen) ---
-        if real_data_strategy == 'correct':
-            synth = original_correct_replace(synth, current_subset, real_data_test)
 
-        if real_data_strategy == 'sc':
-            synth, _ = synth_correct_replace(synth, real_data_test)
+        # --- Calcolo degli indici per il subset del round --- 
+        start_idx = t * chunk_size
+        end_idx = min((t + 1) * chunk_size, len(sample)) # Impedisce l'Out of Bounds
+        
+        # Se start_idx supera la lunghezza del dataset, interrompiamo il ciclo
+        if start_idx >= len(sample):
+            print("\nDati di training esauriti per il prossimo round. Interruzione della pipeline.")
+            break
+
+        # --- SE IL FINETUNING E' IMPOSTATO SU CODE SI SVOLGE L'ESPERIMENTO STANDARD ---
+        if real_data_strategy != 'text':
+                
+            current_subset = sample.select(range(start_idx, end_idx))
+
+            # --- Generazione del dataset sintetico per il train ---
+            print("\nStarting sample generation...")
+            synth = generate_sample(current_subset,
+                                    gen_model, gen_tok,
+                                    n_solutions=n_sol,
+                                    real_data_strategy=real_data_strategy,
+                                    real_data_prop=real_data_per_generation)
+            
+            # --- Correct Replacemet (if chosen) ---
+            if real_data_strategy == 'correct':
+                synth = original_correct_replace(synth, current_subset, real_data_test)
+
+            if real_data_strategy == 'sc':
+                synth, _ = synth_correct_replace(synth, real_data_test)
+        
+        # --- SE IL FINETUNING E' IMPOSTATO SU TEXT SI SVOLGE L'ESPERIMENTO CON IL FINETUNING DI DATI TESTUALI ---
+        else:
+            synth = text_data.select(range(start_idx, end_idx))
 
 
         # --- PULIZIA DELLA VRAM (PRE-TRAINING) ---
@@ -130,6 +142,7 @@ def autophagy(
         gc.collect()
         torch.cuda.empty_cache()
 
+
         # --- Finetuning ---
         print("\nStarting finetuning...")
         ft_dir = f"runs/gen_{t:02d}/adapters"
@@ -138,6 +151,7 @@ def autophagy(
             dataset = synth,
             base_model_id = base_model_id,
             output_dir = ft_dir,
+            ft_dataset_type = real_data_strategy,
             model_type = model_type,
             num_train_epochs = 2,
             lr = lr,
@@ -153,7 +167,8 @@ def autophagy(
 
         # --- Salvataggio su HF ---
         print("\nPushing to HuggingFace Hub...")
-        synth.push_to_hub(data_id)
+        if real_data_strategy != 'text':
+            synth.push_to_hub(data_id)
         ft_model.push_to_hub(model_id)
         ft_tok.push_to_hub(model_id)
         print(f"Pushed model (adapter) to {model_id}")

@@ -31,7 +31,7 @@ real_data = real_data.filter(is_valid_test)
 print(f"Dataset filtrato: {len(real_data)} righe")
 
 # autofagia
-base_model_id = base_models.get('qwen_14b')
+base_model_id = base_models.get('qwen_06b')
 autophagy.autophagy(
     base_model_id=base_model_id,
     real_data_train=real_data,
