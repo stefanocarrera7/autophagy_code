@@ -35,6 +35,40 @@ def remove_markdown(text: str) -> str:
     
     return final_code.strip()
 
+def find_idxs(text: str, pattern: str) -> list:
+    """Find all occurrences of a pattern in a text and return their starting indices."""
+    idxs = []
+    start = 0
+    while True:
+        idx = text.find(pattern, start)
+        if idx == -1:
+            break
+        idxs.append(idx)
+        start = idx + len(pattern)
+    return idxs
+
+def remove_markdown2(text: str, prompt: str) -> str:
+
+    len_prompt = len(prompt)
+    backticks_idxs = find_idxs(text, "```")
+    python_idxs = find_idxs(text, "```python")
+
+    if python_idxs:
+        for i in backticks_idxs:
+            if len_prompt+5 < i < python_idxs[0]:
+                return text[:i]
+            if python_idxs[0] < i:
+                candidate_func = text[python_idxs[0]+9:i]
+                if 'def ' in candidate_func:
+                    return candidate_func
+    
+    else:
+        if backticks_idxs:
+            return text[:backticks_idxs[0]]
+    
+    return text
+        
+
 
 def remove_repetition(text:str, entry_point:str):
     """
@@ -47,6 +81,13 @@ def remove_repetition(text:str, entry_point:str):
     if end > 0:
         text = text[:end]
     
+    return text
+
+
+def remove_check(text: str) -> str:
+    check_idx = text.find('def check(')
+    if check_idx != -1:
+        return text[:check_idx]
     return text
 
 

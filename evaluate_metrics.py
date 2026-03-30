@@ -1,6 +1,6 @@
 from datasets import Dataset
 import metrics
-from post_processing import remove_markdown, light_cleanup, remove_repetition
+from post_processing import remove_markdown2, light_cleanup, remove_repetition, remove_check
 from eval import test_solutions
 import gc
 
@@ -23,7 +23,8 @@ def evaluate_and_push_metrics(
     
     for j in range(len(test_synth)):
         sol = str(test_synth["completion"][j])
-        sol = remove_markdown(sol)
+        sol = remove_markdown2(sol, str(test_synth["prompt"][j]))
+        sol = remove_check(sol)
         # sol = light_cleanup(sol)
         
         entry = str(test_synth["entry_point"][j])
@@ -34,7 +35,7 @@ def evaluate_and_push_metrics(
         n_entry = sol.count("def " + entry + "(")
 
         # Se c'e stata una ripetizione, usiamo la logica definita in remove_repetitions
-        if n_def > 3 or n_entry > 1:
+        if n_def > 2 or n_entry > 1:
             sol = remove_repetition(sol, entry)
         
         row_metrics = {
@@ -132,7 +133,7 @@ def evaluate_correctness_only(test_synth: Dataset, real_data_test: str) -> dict:
     correctness_map = {}
     
     for row in test_synth:
-        sol = remove_markdown(str(row["completion"]))
+        sol = remove_markdown2(str(row["completion"]))
         entry = str(row["entry_point"])
         test_cell = str(row["test"])
         tid = row["task_id"]

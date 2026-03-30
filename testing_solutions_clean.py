@@ -5,14 +5,22 @@ from huggingface_hub import login
 
 login(token = "xxx")
 
-g = 10
+
 MODEL = "Qwen3-14B"
-# strategy = 'text'
-strategies = ['trust', 'correct', 'text']
+strategies = ['trust']
+test_or_train = 'test'
+
+if test_or_train == 'test':
+    g = 10
+else: 
+    g = 9
 
 for strategy in strategies:
     for t in range(1, g + 1):
 
-        # test_data = load_dataset(f"stefanocarrera/autophagycode_D_train_unsloth__Qwen3-8B-Base-unsloth-bnb-4bit_lr0.0001_chunk142_gen{t}", split="train")
-        test_data = load_dataset(f"stefanocarrera/autophagycode_D_he_{MODEL}_strategy_{strategy}_g{t}", split = "train")
-        evaluate_and_push_metrics(test_data, "he", MODEL, 1e-4, t, test_or_train='test', strategy=strategy)
+        if test_or_train == 'test':
+            data = load_dataset(f"stefanocarrera/autophagycode_D_he_{MODEL}_strategy_{strategy}_g{t}", split = "train")
+        else: 
+            data = load_dataset(f"stefanocarrera/autophagycode_D_train_{MODEL}_lr0.0001_c142_{strategy}_g{t}", split="train")
+
+        evaluate_and_push_metrics(data, "he", MODEL, 1e-4, t, test_or_train=test_or_train, strategy=strategy)
