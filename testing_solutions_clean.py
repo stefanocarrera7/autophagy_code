@@ -6,9 +6,9 @@ from huggingface_hub import login
 login(token = "xxx")
 
 
-MODEL = "Qwen3-14B"
-strategies = ['trust']
-test_or_train = 'test'
+MODEL = "Qwen3-0.6B"
+strategies = ['trust', 'scm', 'sem']
+test_or_train = 'train'
 
 if test_or_train == 'test':
     g = 10

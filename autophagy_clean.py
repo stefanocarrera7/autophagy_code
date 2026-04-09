@@ -43,10 +43,7 @@ def autophagy(
     prev_adapter_repo = resume_model_id
     chunk_size = int(len(sample) / g)
 
-    if real_data_strategy == 'text':
-        print("\nLoading text data from hf...")
-        text_data = load_dataset("stefanocarrera/autophagy_D_text_S", split='train')
-
+        
     if real_data_strategy == 'sc':
         n_sol = n_solutions
     else:
@@ -94,7 +91,7 @@ def autophagy(
             test_synth.push_to_hub(test_data_id)
 
             # --- Valutazione Metriche ----
-            # evaluate_and_push_metrics(test_synth, real_data_test, base_tag, lr, t+1, verbose = False)
+            evaluate_and_push_metrics(test_synth, real_data_test, base_tag, lr, t+1, strategy=real_data_strategy, verbose = False)
 
         if t == g - 1:
             print("\nUltima generazione completata, Pipeline terminata.")
@@ -111,28 +108,27 @@ def autophagy(
             break
 
         # --- SE IL FINETUNING E' IMPOSTATO SU CODE SI SVOLGE L'ESPERIMENTO STANDARD ---
-        if real_data_strategy != 'text':
-                
-            current_subset = sample.select(range(start_idx, end_idx))
-
-            # --- Generazione del dataset sintetico per il train ---
-            print("\nStarting sample generation...")
-            synth = generate_sample(current_subset,
-                                    gen_model, gen_tok,
-                                    n_solutions=n_sol,
-                                    real_data_strategy=real_data_strategy,
-                                    real_data_prop=real_data_per_generation)
-            
-            # --- Correct Replacemet (if chosen) ---
-            if real_data_strategy == 'correct':
-                synth = original_correct_replace(synth, current_subset, real_data_test)
-
-            if real_data_strategy == 'sc':
-                synth, _ = synth_correct_replace(synth, real_data_test)
-        
-        # --- SE IL FINETUNING E' IMPOSTATO SU TEXT SI SVOLGE L'ESPERIMENTO CON IL FINETUNING DI DATI TESTUALI ---
+        if real_data_strategy == 'text':
+            real_data_strategy = 'trust'  # Per il text-based, usiamo comunque la strategia di fiducia per la generazione del dataset sintetico
         else:
-            synth = text_data.select(range(start_idx, end_idx))
+            real_data_strategy = real_data_strategy  # Per le altre strategie, manteniamo quella scelta
+                
+        current_subset = sample.select(range(start_idx, end_idx))
+
+        # --- Generazione del dataset sintetico per il train ---
+        print("\nStarting sample generation...")
+        synth = generate_sample(current_subset,
+                                gen_model, gen_tok,
+                                n_solutions=n_sol,
+                                real_data_strategy=real_data_strategy,
+                                real_data_prop=real_data_per_generation)
+        
+        # --- Correct Replacemet (if chosen) ---
+        if real_data_strategy == 'correct':
+            synth = original_correct_replace(synth, current_subset, real_data_test)
+
+        if real_data_strategy == 'sc':
+            synth, _ = synth_correct_replace(synth, real_data_test)
 
 
         # --- PULIZIA DELLA VRAM (PRE-TRAINING) ---

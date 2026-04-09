@@ -133,7 +133,7 @@ def evaluate_correctness_only(test_synth: Dataset, real_data_test: str) -> dict:
     correctness_map = {}
     
     for row in test_synth:
-        sol = remove_markdown2(str(row["completion"]))
+        sol = remove_markdown2(str(row["completion"]), str(row["prompt"]))
         entry = str(row["entry_point"])
         test_cell = str(row["test"])
         tid = row["task_id"]
@@ -149,3 +149,26 @@ def evaluate_correctness_only(test_synth: Dataset, real_data_test: str) -> dict:
         correctness_map[tid] = is_correct
         
     return correctness_map
+
+
+def evaluate_executable_only(test_synth: Dataset, real_data_test: str) -> dict:
+    """
+    Ritorna un dizionario {task_id: is_executable:bool} per un allineamento sicuro.
+    """
+    executable_map = {}
+    
+    for row in test_synth:
+        sol = remove_markdown2(str(row["completion"]), str(row["prompt"]))
+        entry = str(row["entry_point"])
+        test_cell = str(row["test"])
+        tid = row["task_id"]
+        
+        is_executable = False
+        if test_cell.strip() and test_cell != "nan":
+            res = test_solutions([sol], entry, test_cell, data_format=real_data_test)
+            if res['prop_correct_defined'] > 0.99:
+                    is_executable = True
+        
+        executable_map[tid] = is_executable
+        
+    return executable_map

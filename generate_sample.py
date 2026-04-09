@@ -3,7 +3,7 @@ from gen import generate_solutions
 from post_processing import remove_markdown
 import random
 from eval import test_solutions
-from evaluate_metrics import evaluate_correctness_only
+from evaluate_metrics import evaluate_correctness_only, evaluate_executable_only
 
 
 def generate_sample(data,
@@ -31,20 +31,19 @@ def generate_sample(data,
             })
             continue
 
-        entry = data[row]['entry_point']
         prompt = data[row]['prompt']
 
-        solutions = generate_solutions(prompt, entry, model, tokenizer, n_solutions=n_solutions)
+        # Forza il ritorno a capo se non c'è già
+        if not prompt.endswith('\n'):
+            prompt += '\n' 
 
-        # Qua si potrebbero provare diversi approcci per considerare le soluzioni multiple:
-        # - scegliere la soluzione migliore
-        # - scegliere una soluzione a caso
-        # - includerle tutte nel dataset sintetico (come fatto qui sotto)
-        
+        solutions = generate_solutions(prompt, model, tokenizer, n_solutions=n_solutions)
+
+        # Aggiunta delle soluzioni
         for s in range(n_solutions):
             sample.append({
                             "task_id": data[row]["task_id"],
-                            "entry_point": entry,
+                            "entry_point": data[row]['entry_point'],
                             "prompt": prompt,
                             "completion": solutions[s],
                             "test": data[row]['test'],
@@ -62,8 +61,17 @@ def generate_sample(data,
                 "completion": data[i]["completion"],
                 "test": data[i]['test'],
                 })
+            
+    if real_data_strategy == 'scm':
+        sample = synth_correct_mantain(Dataset.from_list(sample), real_data_test='he')
+        return sample
+    
+    if real_data_strategy == 'sem':
+        sample = synth_executable_mantain(Dataset.from_list(sample), real_data_test='he')
+        return sample
 
     return Dataset.from_list(sample)
+
 
 
 def original_correct_replace(data: Dataset, original_data: Dataset, real_data_str: str) -> Dataset:
@@ -81,6 +89,39 @@ def original_correct_replace(data: Dataset, original_data: Dataset, real_data_st
         return example
 
     return data.map(replacement_logic)
+
+
+
+def synth_executable_mantain(synth_data: Dataset, real_data_test: str) -> Dataset:
+    """
+    Filtra il dataset mantenendo solo i campioni con task_id corretti.
+    """
+    executable_map = evaluate_executable_only(synth_data, real_data_test)
+
+    filtered_dataset = synth_data.filter(
+        lambda row: executable_map.get(row['task_id'], False)
+    )
+
+    print(f"Soluzioni eseguibili mantenute: {len(filtered_dataset)} su {len(synth_data)}")
+    
+    return filtered_dataset
+
+
+
+def synth_correct_mantain(synth_data: Dataset, real_data_test: str) -> Dataset:
+    """
+    Filtra il dataset mantenendo solo i campioni con task_id corretti.
+    """
+    correctness_map = evaluate_correctness_only(synth_data, real_data_test)
+
+    filtered_dataset = synth_data.filter(
+        lambda row: correctness_map.get(row['task_id'], False)
+    )
+
+    print(f"Soluzioni corrette mantenute: {len(filtered_dataset)} su {len(synth_data)}")
+    
+    return filtered_dataset
+
 
 
 def synth_correct_replace(synth_data: Dataset, real_data_test: str = 'he') -> Dataset:

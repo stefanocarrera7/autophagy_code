@@ -24,7 +24,6 @@ class Float32LogitsProcessor(LogitsProcessor):
 
 
 def generate_solutions(prompt: str,
-                       entry_point:str,
                        model,
                        tokenizer,
                        temperature:float = 0.2,
