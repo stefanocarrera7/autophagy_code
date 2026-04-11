@@ -93,41 +93,10 @@ def test_solutions(solutions, entry_point, test_cell, data_format="he", test_run
             ok = 0
             fail = 0
             sol_time = False
-            ratio_he = 0.0
             sol_error = None 
-            
 
+            
             if data_format == 'mbpp':
-                for a in asserts:
-                    if timeouts >= 1: break
-                    try:
-                        signal.alarm(3)
-                        try:
-                            exec(a, ns, ns)
-                        finally:
-                            signal.alarm(0)
-                        ok += 1
-                    except AssertionError:
-                        fail += 1
-                        if not sol_error: sol_error = "AssertionError"
-                    except TimeoutException:
-                        fail += 1
-                        timeouts += 1
-                        if not sol_error: sol_error = "TimeoutException"
-                    except Exception as e:
-                        fail += 1
-                        if not sol_error: sol_error = type(e).__name__
-
-                if fail == 0:
-                    sol_time = 0
-                    for a in asserts:
-                        try:
-                            t_run = wrapper_func_time(exec, test_runs, a, ns, ns)
-                            sol_time += t_run
-                        except:
-                            continue
-            
-            else: # data_format == 'he'
                 ns['candidate'] = candidate_func 
                 assert_times = []
                 t_start = None
@@ -156,6 +125,30 @@ def test_solutions(solutions, entry_point, test_cell, data_format="he", test_run
                 
                 if fail == 0 and assert_times:
                     sol_time = sum(assert_times)
+
+
+            else:  # data_format == 'he'
+                try:
+                    exec(test_cell, ns, ns)
+                    
+                    if 'check' in ns:
+                        signal.alarm(3)
+                        try:
+                            ns['check'](candidate_func)
+                            ok += 1 
+                        finally:
+                            signal.alarm(0)
+
+                except TimeoutException:
+                    fail += 1
+                    timeouts += 1
+                    sol_error = "TimeoutException"
+                except AssertionError:
+                    fail += 1
+                    sol_error = "AssertionError"
+                except Exception as e:
+                    fail += 1
+                    sol_error = type(e).__name__
 
             # --- FASE 3: STATISTICHE ---
             sol_time_ms = sol_time * 1000 if sol_time is not False else None

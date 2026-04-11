@@ -1,6 +1,6 @@
 from datasets import Dataset
 import metrics
-from post_processing import remove_markdown2, light_cleanup, remove_repetition, remove_check
+from post_processing import remove_markdown2, remove_repetition, remove_check
 from eval import test_solutions
 import gc
 
@@ -134,6 +134,7 @@ def evaluate_correctness_only(test_synth: Dataset, real_data_test: str) -> dict:
     
     for row in test_synth:
         sol = remove_markdown2(str(row["completion"]), str(row["prompt"]))
+        sol = remove_check(sol)
         entry = str(row["entry_point"])
         test_cell = str(row["test"])
         tid = row["task_id"]

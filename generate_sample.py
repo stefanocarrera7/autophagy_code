@@ -1,6 +1,6 @@
 from datasets import Dataset
 from gen import generate_solutions
-from post_processing import remove_markdown
+from post_processing import remove_markdown2
 import random
 from eval import test_solutions
 from evaluate_metrics import evaluate_correctness_only, evaluate_executable_only
@@ -10,11 +10,16 @@ def generate_sample(data,
                     model,
                     tokenizer,
                     n_solutions:int = 1,
-                    real_data_strategy: str = 'trust',  # 'replace', 'augment', 'sc', 'trust'
+                    real_data_strategy: str = 'trust',  # 'replace', 'augment', 'sc', 'trust', 'text'
                     real_data_prop: float = 0):
 
     sample = []
     index_to_insert = None
+
+    if real_data_strategy != 'text':
+        max_new_t = 300
+    else:
+        max_new_t = 64
 
     if real_data_strategy in ['augment', 'replace'] and real_data_prop > 0:
         index_to_insert = random.sample(range(len(data)), int(len(data)*real_data_prop))
@@ -33,11 +38,14 @@ def generate_sample(data,
 
         prompt = data[row]['prompt']
 
+        if prompt.endswith('..'):
+            prompt = prompt[:-1] + '\n'
         # Forza il ritorno a capo se non c'è già
         if not prompt.endswith('\n'):
             prompt += '\n' 
+        
 
-        solutions = generate_solutions(prompt, model, tokenizer, n_solutions=n_solutions)
+        solutions = generate_solutions(prompt, model, tokenizer, n_solutions=n_solutions, max_new_tokens=max_new_t)
 
         # Aggiunta delle soluzioni
         for s in range(n_solutions):
@@ -148,7 +156,7 @@ def synth_correct_replace(synth_data: Dataset, real_data_test: str = 'he') -> Da
         count = 0
         # valutiamo le soluzioni una per una
         for row in rows:
-            sol = remove_markdown(str(row["completion"]))
+            sol = remove_markdown2(str(row["completion"]))
             entry = str(row["entry_point"])
             test_cell = str(row["test"])
             

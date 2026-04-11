@@ -78,6 +78,7 @@ def autophagy(
             load_in_4bit = True,
             device_map = {"": 0},
         )
+                        
         FastLanguageModel.for_inference(gen_model)
 
 

@@ -2,38 +2,6 @@
 import re
 import pandas as pd
 
-def remove_markdown(text: str) -> str:
-    """
-    Versione ottimizzata per la tesi: estrae il codice fermandosi 
-    al primo segnale di chiusura (```) o di testo naturale (###, Explanation).
-    """
-    start_idx = 0
-    if text.strip().startswith("```python"):
-        start_idx = text.find("```python") + 9
-    elif text.strip().startswith("```"):
-        start_idx = text.find("```") + 3
-    
-    # Lavoriamo sulla parte che (teoricamente) contiene solo codice
-    code_part = text[start_idx:].strip()
-
-    stop_signals = [
-        "```",             # Le backtick di chiusura (il tuo caso critico)
-        "###",             # Titoli markdown per spiegazioni
-    ]
-
-    # Cerchiamo la posizione più vicina (minima) tra tutti i segnali di stop
-    end_idx = len(code_part) # Di default, la fine è tutto il testo
-    
-    for signal in stop_signals:
-        pos = code_part.find(signal)
-        if pos != -1:
-            # Se troviamo un segnale, aggiorniamo end_idx solo se è più vicino dell'attuale
-            end_idx = min(end_idx, pos)
-
-    # Tagliamo e puliamo
-    final_code = code_part[:end_idx]
-    
-    return final_code.strip()
 
 def find_idxs(text: str, pattern: str) -> list:
     """Find all occurrences of a pattern in a text and return their starting indices."""
@@ -70,64 +38,64 @@ def remove_markdown2(text: str, prompt: str) -> str:
         
 
 
-def remove_repetition(text:str, entry_point:str):
+def remove_repetition(text: str, entry_point: str) -> str:
     """
-    Remove repetition behaviour of LLMs by taking the first entry_point function
-    !! Aggressive strategy that cut everrything after the second def starting from def entrty_point()
+    Remove repetition behaviour of LLMs keeping the entry_point function.
+    Safely ignores nested functions by looking only at top-level definitions (no indentation).
     """
-    start_to_search = max(0, text.find(f'def {entry_point}('))
-
-    end = text.find('def ', start_to_search + len(f'def {entry_point}('))
-    if end > 0:
-        text = text[:end]
+    # Usiamo ^def per trovare SOLO le funzioni che iniziano a inizio riga (top-level)
+    pattern = r'^def\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\('
+    top_level_defs = list(re.finditer(pattern, text, flags=re.MULTILINE))
     
-    return text
+    # 1. Troviamo quale di queste funzioni top-level è il nostro entry_point
+    entry_idx = -1
+    for i, match in enumerate(top_level_defs):
+        if match.group(1) == entry_point:
+            entry_idx = i
+            break
+            
+    if entry_idx == -1:
+        return text  # Entry point non trovato come funzione top-level
+        
+    # Se l'entry point è l'ultima o l'unica funzione top-level, non c'è nulla da tagliare
+    if entry_idx == len(top_level_defs) - 1:
+        return text
+
+    # 2. Identifichiamo l'helper (che ORA siamo certi essere la funzione top-level successiva)
+    helper_match = top_level_defs[entry_idx + 1]
+    helper_name = helper_match.group(1)
+    
+    # 3. Estraiamo il corpo dell'entry_point (dall'inizio dell'entry point all'inizio dell'helper)
+    entry_start = top_level_defs[entry_idx].start()
+    helper_start = helper_match.start()
+    entry_point_body = text[entry_start:helper_start]
+
+    # 4. Verifichiamo se l'helper è chiamato nel corpo dell'entry_point
+    if re.search(rf'\b{helper_name}\b', entry_point_body):
+        # L'helper è utilizzato! Dobbiamo tenerlo.
+        # Guardiamo se esiste una terza funzione top-level a cui poter tagliare
+        if entry_idx + 2 < len(top_level_defs):
+            second_helper_start = top_level_defs[entry_idx + 2].start()
+            return text[:second_helper_start]
+        else:
+            return text  # Non ci sono altre funzioni top-level dopo l'helper, teniamo tutto
+    else:
+        # L'helper NON è utilizzato. Tagliamo esattamente dove inizia l'helper.
+        return text[:helper_start]
 
 
 def remove_check(text: str) -> str:
-    check_idx = text.find('def check(')
-    if check_idx != -1:
-        return text[:check_idx]
-    return text
-
-
-
-def light_cleanup(code: str) -> str:
     """
-    Rimuove firme di funzioni duplicate leggendo il codice riga per riga.
-    Più sicuro e robusto di qualsiasi espressione regolare.
+    Rimuove la funzione di test 'check' tipica di HumanEval/MBPP.
+    Ignora in modo sicuro eventuali funzioni annidate chiamate 'check' 
+    cercando solo definizioni a livello globale (inizio riga).
     """
-    lines = code.split('\n')
-    new_lines = []
-    seen_defs = set()
+    pattern = r'^def\s+check\b\s*\('
     
-    i = 0
-    while i < len(lines):
-        line = lines[i]
-        stripped = line.strip()
+    match = re.search(pattern, text, flags=re.MULTILINE)
+    
+    if match:
+        # Tagliamo esattamente dove inizia il match (ovvero la lettera 'd' di def)
+        return text[:match.start()]
         
-        # Intercettiamo le firme delle funzioni
-        if stripped.startswith("def "):
-            # Estraiamo il nome esatto della funzione
-            parts = stripped.split("def ", 1)[1]
-            name = parts.split("(", 1)[0].strip()
-            
-            if name in seen_defs:
-                # FIRMA DUPLICATA TROVATA!
-                # Saltiamo questa riga e tutte le eventuali righe successive
-                # fino alla fine della firma (i due punti ":")
-                while i < len(lines) and not lines[i].strip().endswith(":"):
-                    i += 1
-                i += 1 # Salta l'ultima riga della firma
-                continue
-            else:
-                # Nuova funzione, la salviamo in memoria
-                seen_defs.add(name)
-                new_lines.append(line)
-                i += 1
-                continue
-                
-        new_lines.append(line)
-        i += 1
-        
-    return '\n'.join(new_lines)
+    return text
