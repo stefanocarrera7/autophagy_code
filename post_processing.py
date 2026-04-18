@@ -99,3 +99,46 @@ def remove_check(text: str) -> str:
         return text[:match.start()]
         
     return text
+
+
+def extract_functions(llm_output: str) -> str:
+    """
+    Estrae definizioni di funzioni multiple (comprese le helper) e import globali,
+    ignorando la non-stop generation come test cases e testo discorsivo.
+    """
+    lines = llm_output.splitlines()
+    extracted_lines = []
+    inside_target_block = False
+    
+    for line in lines:
+        stripped = line.strip()
+        
+        # 1. Cattura import globali (spesso il LLM li inserisce in cima, prima delle helper)
+        if not inside_target_block and (line.startswith('import ') or line.startswith('from ')):
+            extracted_lines.append(line)
+            continue
+            
+        # 2. Inizio di una funzione (o di un decoratore come @lru_cache)
+        if line.startswith('def ') or line.startswith('@'):
+            inside_target_block = True
+            extracted_lines.append(line)
+            continue
+            
+        # 3. Logica di cattura del corpo della funzione
+        if inside_target_block:
+            # Righe indentate fanno parte della funzione
+            if line.startswith(' ') or line.startswith('\t'):
+                extracted_lines.append(line)
+            # Le righe vuote sono sicure e mantengono la formattazione
+            elif not stripped:
+                extracted_lines.append(line)
+            else:
+                # Abbiamo incontrato una riga a livello 0 (es. "print(...)", "===")
+                # Usciamo dallo stato di cattura, MA siamo pronti a rientrarci se troviamo un altro "def "
+                inside_target_block = False
+                
+    # Pulizia: rimuove eventuali righe vuote accumulate alla fine del codice estratto
+    while extracted_lines and not extracted_lines[-1].strip():
+        extracted_lines.pop()
+        
+    return '\n'.join(extracted_lines)

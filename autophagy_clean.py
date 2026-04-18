@@ -25,8 +25,9 @@ def _sanitize_repo_name(text: str) -> str:
 
 def autophagy(
     base_model_id: str,
-    real_data_train: Dataset,
-    real_data_test: str = "he",
+    is_instruct: bool = False,
+    real_data_train: str = 'mercury',    # 'taco', 'mercury', 'all_train'
+    real_data_test: str = "he",    # 'all_test'
     model_type: str = "llama", # 'llama' o 'qwen'
     g: int = 10,
     n_solutions: int = 1,
@@ -34,33 +35,55 @@ def autophagy(
     start_round: int = 0,                           # per riprendere da un round specifico in caso di interruzioni
     resume_model_id: str = None,                     # ultimo modello addestrato
     real_data_strategy: str = 'trust',              # 'correct' rimpiazza le soluzioni errate, 'trust' rimpiazza qualsiasi sia la soluzione, 'text' fa il ft con dati testuali
-    real_data_per_generation: float = None,          # se specificato, indica la percentuale di dati reali da utilizzare per ogni generazione
-    skip_first_test = False,
+    skip_first_test = False
     ):
 
-    sample = real_data_train
     base_tag = _sanitize_repo_name(base_model_id)
-    prev_adapter_repo = resume_model_id
-    chunk_size = int(len(sample) / g)
-
+    if is_instruct:
+        base_tag += "-instr"
         
+    prev_adapter_repo = resume_model_id
+
     if real_data_strategy == 'sc':
         n_sol = n_solutions
     else:
         n_sol = 1
 
-    # ===== SCARICARE HE PER TEST ======
+    # ===== SCARICARE I DATI  ======
+    # --- TEST ---
     if real_data_test == "he":
         print("\nLoading HumanEval test set...")
         test_data = load_dataset("openai/openai_humaneval", split="test")
-        #### TEST
-        # test_data = test_data.shuffle(seed=42).select(range(5))
 
     if real_data_test == "evalplus":
         print("\nLoading EvalPlus test set...")
         test_data = load_dataset("stefanocarrera/autophagy_D_evalplus", split="train")
 
+    if (real_data_test == "all_test" and real_data_train != "all_train") or (real_data_test != "all_test" and real_data_train == "all_train"):
+        print("\nERROR: Inconsistent data selection. If you choose 'all_test' for real_data_test, you must also choose 'all_train' for real_data_train, and vice versa.")
+        return
+
+    if real_data_test == "all_test":
+        print("\nLoading Merged All test set...")
+        test_data = load_dataset("stefanocarrera/autophagy_D_all", split="test")
+
+    # --- TRAIN ---
+    if real_data_train == "mercury":
+        print("\nLoading Mercury training set...")
+        sample = load_dataset("stefanocarrera/autophagy_D_mercury", split="train")
+
+    if real_data_train == "taco":
+        print("\nLoading Taco training set...")
+        sample = load_dataset("stefanocarrera/autophagy_D_taco", split="train")
+
+    if real_data_train == "all_train":
+        print("\nLoading Merged All training set...")
+        sample = load_dataset("stefanocarrera/autophagy_D_all", split="train")
     
+    chunk_size = int(len(sample) / g)
+
+    
+
     # ======= MAIN LOOP ========
     for t in range(start_round, g):
         print(f"\n{'='*40}")
@@ -86,12 +109,12 @@ def autophagy(
         if skip_first_test == False or (skip_first_test == True and t != start_round):
             
             print(f"\nGenerating synthetic test set for generation {t+1}...")
-            test_synth = generate_sample(test_data, gen_model, gen_tok, n_solutions=n_solutions)
+            test_synth = generate_sample(test_data, gen_model, gen_tok, n_solutions=n_solutions, real_data_strategy='trust')
 
             test_data_id = f"stefanocarrera/autophagycode_D_{real_data_test}_{base_tag}_strategy_{real_data_strategy}_g{t+1}"
             test_synth.push_to_hub(test_data_id)
 
-            # --- Valutazione Metriche ----
+            # --- Valutazione Metriche ----   # da vedere per il text
             evaluate_and_push_metrics(test_synth, real_data_test, base_tag, lr, t+1, strategy=real_data_strategy, verbose = False)
 
         if t == g - 1:
@@ -108,11 +131,6 @@ def autophagy(
             print("\nDati di training esauriti per il prossimo round. Interruzione della pipeline.")
             break
 
-        # --- SE IL FINETUNING E' IMPOSTATO SU CODE SI SVOLGE L'ESPERIMENTO STANDARD ---
-        if real_data_strategy == 'text':
-            real_data_strategy = 'trust'  # Per il text-based, usiamo comunque la strategia di fiducia per la generazione del dataset sintetico
-        else:
-            real_data_strategy = real_data_strategy  # Per le altre strategie, manteniamo quella scelta
                 
         current_subset = sample.select(range(start_idx, end_idx))
 
@@ -121,8 +139,7 @@ def autophagy(
         synth = generate_sample(current_subset,
                                 gen_model, gen_tok,
                                 n_solutions=n_sol,
-                                real_data_strategy=real_data_strategy,
-                                real_data_prop=real_data_per_generation)
+                                real_data_strategy=real_data_strategy)
         
         # --- Correct Replacemet (if chosen) ---
         if real_data_strategy == 'correct':
@@ -147,8 +164,8 @@ def autophagy(
         ft_model, ft_tok = finetune_model(
             dataset = synth,
             base_model_id = base_model_id,
+            is_instruct=is_instruct,
             output_dir = ft_dir,
-            ft_dataset_type = real_data_strategy,
             model_type = model_type,
             num_train_epochs = 2,
             lr = lr,
@@ -159,13 +176,12 @@ def autophagy(
 
         print("\nEnd Finetuning...")
 
-        model_id = f"stefanocarrera/autophagycode_M_{base_tag}_lr{lr}_c{chunk_size}_{real_data_strategy}_g{t+1}"
-        data_id  = f"stefanocarrera/autophagycode_D_train_{base_tag}_lr{lr}_c{chunk_size}_{real_data_strategy}_g{t+1}"
+        model_id = f"stefanocarrera/autophagycode_M_{real_data_train}_{base_tag}_lr{lr}_c{chunk_size}_{real_data_strategy}_g{t+1}"
+        data_id  = f"stefanocarrera/autophagycode_D_{real_data_train}_{base_tag}_lr{lr}_c{chunk_size}_{real_data_strategy}_g{t+1}"
 
         # --- Salvataggio su HF ---
         print("\nPushing to HuggingFace Hub...")
-        if real_data_strategy != 'text':
-            synth.push_to_hub(data_id)
+        synth.push_to_hub(data_id)
         ft_model.push_to_hub(model_id)
         ft_tok.push_to_hub(model_id)
         print(f"Pushed model (adapter) to {model_id}")

@@ -24,7 +24,7 @@ def wrapper_func_time(func, run, *args):
 
 
 
-def test_solutions(solutions, entry_point, test_cell, data_format="he", test_runs=1, verbose=False):
+def test_solutions(solutions, entry_point, test_cell, test_format="he", verbose=False):
     """
     Testa le soluzioni generate gestendo sia funzioni globali che metodi di classe Solution.
     """
@@ -96,7 +96,7 @@ def test_solutions(solutions, entry_point, test_cell, data_format="he", test_run
             sol_error = None 
 
             
-            if data_format == 'mbpp':
+            if test_format == 'mbpp':
                 ns['candidate'] = candidate_func 
                 assert_times = []
                 t_start = None
@@ -128,16 +128,17 @@ def test_solutions(solutions, entry_point, test_cell, data_format="he", test_run
 
 
             else:  # data_format == 'he'
+                signal.alarm(5)
                 try:
+                    # Eseguiamo la definizione dei test
                     exec(test_cell, ns, ns)
                     
+                    # Se esiste la funzione check, la eseguiamo
                     if 'check' in ns:
-                        signal.alarm(3)
-                        try:
-                            ns['check'](candidate_func)
-                            ok += 1 
-                        finally:
-                            signal.alarm(0)
+                        ns['check'](candidate_func)
+                    
+                    # Se arriviamo qui senza eccezioni, il test è passato
+                    ok += 1 
 
                 except TimeoutException:
                     fail += 1
@@ -149,6 +150,8 @@ def test_solutions(solutions, entry_point, test_cell, data_format="he", test_run
                 except Exception as e:
                     fail += 1
                     sol_error = type(e).__name__
+                finally:
+                    signal.alarm(0)
 
             # --- FASE 3: STATISTICHE ---
             sol_time_ms = sol_time * 1000 if sol_time is not False else None

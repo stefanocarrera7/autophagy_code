@@ -7,14 +7,13 @@ from peft import PeftModel
 def finetune_model(
     dataset: Dataset,
     base_model_id: str,
+    is_instruct: bool = False,
     output_dir: str = "unsloth-code-ft",
     model_type: str = "qwen",
-    ft_dataset_type: str = "trust",
     num_train_epochs: int = 1,
     lr: float = 1e-5,
     batch_size: int = 2,
     grad_accum: int = 8,
-    max_length: int = 750,
     max_seq_length: int = 750,    
     lora_r: int = 16,
     lora_alpha: int = 16,
@@ -71,46 +70,40 @@ def finetune_model(
     # 3) Preparazione Dati con Template Dinamico
     EOS_TOKEN = tokenizer.eos_token 
     
-    # def formatting_prompts_func(ex):
-    #     prompt_text = ex['prompt']
-    #     completion_text = ex['completion']
+    def formatting_prompts_func(ex):
+        prompt_text = ex['prompt']
+        completion_text = ex['completion']
 
-    #     if model_type.lower() == "qwen":
-    #         # --- FORMATO CHATML (Ideale per Qwen) ---
-    #         text = (
-    #             f"<|im_start|>user\n{prompt_text}<|im_end|>\n"
-    #             f"<|im_start|>assistant\n{completion_text}<|im_end|>"
-    #         ) + EOS_TOKEN
+        if model_type.lower() == "qwen":
+            # --- FORMATO CHATML (Ideale per Qwen) ---
+            text = (
+                f"<|im_start|>user\n{prompt_text}<|im_end|>\n"
+                f"<|im_start|>assistant\n{completion_text}<|im_end|>"
+            ) + EOS_TOKEN
             
-    #     else:
-    #         # --- FORMATO ALPACA/STANDARD (Ideale per Llama) ---
-    #         text = (
-    #             f"### Prompt:\n{prompt_text}\n\n"
-    #             f"### Completion:\n{completion_text}"
-    #         ) + EOS_TOKEN
+        else:
+            # --- FORMATO ALPACA/STANDARD (Ideale per Llama) ---
+            text = (
+                f"### Prompt:\n{prompt_text}\n\n"
+                f"### Completion:\n{completion_text}"
+            ) + EOS_TOKEN
             
-    #     return {"text": text}
+        return {"text": text}
 
     # 3) Preparazione Dati con Template Dinamico
     
-    def formatting_prompts_code(ex):
+    def formatting_prompts(ex):
         completion_text = ex['completion']
         # La completion contiene già la firma, la docstring e il codice finale.
         text = completion_text + EOS_TOKEN
             
         return {"text": text}
-    
-    def formatting_prompts_text(ex):
-        testo_naturale = ex['text'] 
 
-        text = testo_naturale + EOS_TOKEN
-            
-        return {"text": text}
-
-    if ft_dataset_type != "text":
-        ds = dataset.map(formatting_prompts_code)
+    if is_instruct:
+        ds = dataset.map(formatting_prompts_func)
     else:
-        ds = dataset.map(formatting_prompts_text)
+        ds = dataset.map(formatting_prompts)
+
     
     columns_to_keep = ["text"]
     ds = ds.remove_columns([c for c in ds.column_names if c not in columns_to_keep])

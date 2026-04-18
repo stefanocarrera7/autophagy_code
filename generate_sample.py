@@ -10,31 +10,17 @@ def generate_sample(data,
                     model,
                     tokenizer,
                     n_solutions:int = 1,
-                    real_data_strategy: str = 'trust',  # 'replace', 'augment', 'sc', 'trust', 'text'
-                    real_data_prop: float = 0):
+                    real_data_strategy: str = 'trust',  # 'replace', 'trust', 'text'
+                    ) -> Dataset:
 
     sample = []
-    index_to_insert = None
 
     if real_data_strategy != 'text':
-        max_new_t = 300
+        max_new_t = 512
     else:
         max_new_t = 64
 
-    if real_data_strategy in ['augment', 'replace'] and real_data_prop > 0:
-        index_to_insert = random.sample(range(len(data)), int(len(data)*real_data_prop))
-
     for row in range(len(data)):
-
-        if index_to_insert and (row in index_to_insert) and (real_data_strategy == 'replace'):
-            sample.append({
-                "task_id": data[row]["task_id"],
-                "entry_point": data[row]["entry_point"],
-                "prompt": data[row]["prompt"],
-                "completion": data[row]["completion"],
-                "test": data[row]['test'],
-            })
-            continue
 
         prompt = data[row]['prompt']
 
@@ -60,15 +46,6 @@ def generate_sample(data,
         if (row+1) % 10 == 0:
             print(f"{row+1} / {len(data)} tasks processed.")
 
-    if index_to_insert and (real_data_strategy == 'augment') and (real_data_prop > 0):
-        for i in index_to_insert:
-            sample.append({
-                "task_id": data[i]["task_id"],
-                "entry_point": data[i]["entry_point"],
-                "prompt": data[i]["prompt"],
-                "completion": data[i]["completion"],
-                "test": data[i]['test'],
-                })
             
     if real_data_strategy == 'scm':
         sample = synth_correct_mantain(Dataset.from_list(sample), real_data_test='he')

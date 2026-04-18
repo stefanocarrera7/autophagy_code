@@ -6,8 +6,8 @@ from huggingface_hub import login
 login(token = "xxx")
 
 
-MODELS = ["Qwen3-0.6B","Qwen3-8B","Qwen3-14B"]
-strategies = ['trust', 'scm', 'sem']
+MODELS = ["Qwen3-8B-instr"]
+strategies = ['trust']
 test_or_train = 'test'
 
 if test_or_train == 'test':

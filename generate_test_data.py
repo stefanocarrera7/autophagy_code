@@ -12,16 +12,16 @@ login("xxx")
 print("Caricamento dataset base (HumanEval)...")
 base_data = load_dataset("openai/openai_humaneval", split="test")
 
-num_generations = 10
-n_sol_per_prompt = 3
-max_seq_length = 300
+num_generations = 1
+n_sol_per_prompt = 1
+max_seq_length = 750
 test_data_id = "he"
 
 B = 8
 MODEL = f"Qwen3-{B}B"
-real_data_strategy = 'correct'
+real_data_strategy = 'trust'
 
-for g in range(1,num_generations):
+for g in range(num_generations):
     print(f"\n{'='*50}")
     print(f"   AVVIO GENERAZIONE E VALUTAZIONE [{g}]")
     print(f"{'='*50}")
@@ -31,20 +31,20 @@ for g in range(1,num_generations):
         # Generazione 0: Modello originale
         model_repo = f"unsloth/Qwen3-{B}B-Base-unsloth-bnb-4bit"
     else:
-        model_repo = f"stefanocarrera/autophagycode_M_{MODEL}_lr1e-05_c142_correct_g{g}"
+        model_repo = f"stefanocarrera/autophagycode_M_Qwen3-{B}B_lr0.0001_c200_trust_g{g}"
 
-    dataset_repo = f"stefanocarrera/autophagycode_D_he_{MODEL}_strategy_{real_data_strategy}_g{g+1}"
+    dataset_repo = f"stefanocarrera/autophagycode_D_he_{MODEL}_strategy_trust_g{g+1}"
 
     print(f"Scaricamento e caricamento modello tramite Unsloth: {model_repo}")
     
     # 3. Caricamento del modello e tokenizer con Unsloth
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name = model_repo,
-        max_seq_length = max_seq_length,
+        max_seq_length = 750,
         dtype = torch.float16,
         load_in_4bit = True,
+        device_map = {"": 0},
     )
-    # Abilita l'inferenza nativa 2x più veloce di Unsloth
     FastLanguageModel.for_inference(model)
 
     # 4. Generazione del dataset
@@ -53,7 +53,8 @@ for g in range(1,num_generations):
         data=base_data, 
         model=model, 
         tokenizer=tokenizer, 
-        n_solutions=n_sol_per_prompt
+        n_solutions=n_sol_per_prompt,
+        real_data_strategy=real_data_strategy
     )
 
     # 5. Push diretto del dataset generato sul tuo Hugging Face Hub

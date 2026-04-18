@@ -1,6 +1,6 @@
 from datasets import Dataset
 import metrics
-from post_processing import remove_markdown2, remove_repetition, remove_check
+from post_processing import remove_markdown2, remove_repetition, remove_check, extract_functions
 from eval import test_solutions
 import gc
 
@@ -12,20 +12,26 @@ def evaluate_and_push_metrics(
     gen_round: int,
     verbose = False,
     test_or_train = 'test',
+    real_data_train : str = None,
     strategy = 'trust'
 ) -> None:
     """
     Valuta il dataset generato, estrae le metriche Halstead e il Maintainability Index,
     e pusha i risultati direttamente su Hugging Face.
     """
+
+    if test_or_train == 'train' and not real_data_train:
+        print("ERROR: Per la valutazione dei dati di training, è necessario specificare real_data_train.")
+        return
+
     print(f"\nEvaluating synthetic test set and extracting metrics for generation {gen_round}...")
     generation_results = []
     
     for j in range(len(test_synth)):
         sol = str(test_synth["completion"][j])
+        sol = extract_functions(sol)
         sol = remove_markdown2(sol, str(test_synth["prompt"][j]))
         sol = remove_check(sol)
-        # sol = light_cleanup(sol)
         
         entry = str(test_synth["entry_point"][j])
         test_cell = str(test_synth["test"][j])
@@ -64,7 +70,7 @@ def evaluate_and_push_metrics(
 
 
         # Esecuzione test
-        res = test_solutions([sol], entry, test_cell, data_format=real_data_test, verbose=verbose)
+        res = test_solutions([sol], entry, test_cell, test_format=real_data_test, verbose=verbose)
         
         # Analisi Eseguibilità e Correttezza
         if res.get("prop_correct_defined", 0) > 0.99:
@@ -117,7 +123,7 @@ def evaluate_and_push_metrics(
         metrics_data_id = f"stefanocarrera/autophagycode_D_metrics_{real_data_test}_{base_tag}_lr{lr}_{strategy}_g{gen_round}"
         metrics_dataset.push_to_hub(metrics_data_id)
     elif test_or_train == 'train':
-        metrics_data_id = f"stefanocarrera/autophagycode_D_metrics_train_{base_tag}_lr{lr}_{strategy}_g{gen_round}"
+        metrics_data_id = f"stefanocarrera/autophagycode_D_metrics_{real_data_train}_{base_tag}_lr{lr}_{strategy}_g{gen_round}"
         metrics_dataset.push_to_hub(metrics_data_id)
     print(f"Pushed metrics to {metrics_data_id}")
 

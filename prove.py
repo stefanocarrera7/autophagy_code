@@ -7,18 +7,22 @@ MODEL = "unsloth/Qwen3-8B-Base-unsloth-bnb-4bit"
 
 model, tok = FastLanguageModel.from_pretrained(
     model_name = MODEL,
-    max_seq_length = 1024, # Alzato per sicurezza sui prompt lunghi
+    max_seq_length = 750, # Alzato per sicurezza sui prompt lunghi
     dtype = None,          # Unsloth rileva automaticamente float16/bfloat16
     load_in_4bit = True,
 )
 FastLanguageModel.for_inference(model)
 
 # Carichiamo il dataset
-ds = load_dataset("stefanocarrera/autophagy_D_mercury")
+ds = load_dataset("openai/openai_humaneval", split="test")
 
-test_prompt = ds['train']['prompt'][0]
-test_entry = ds['train']['entry_point'][0]
+random_index = 84
+
+test_prompt = ds[random_index]['prompt']
+test_entry = ds[random_index]['entry_point']
 
 # Generazione
-soluzioni = generate_solutions(test_prompt, test_entry, model, tok, n_solutions=1)
-print(soluzioni[0])
+soluzioni = generate_solutions(test_prompt, model, tok, max_new_tokens=300)
+
+print(f"Prompt:\n{test_prompt}\n")
+print(f"Soluzioni generate:\n{soluzioni[0]}\n")

@@ -20,4 +20,7 @@ df = df.map(transform_row, with_indices=True)
 
 df = df.remove_columns(['synt', 'dataset', 'id_doc', 'gen', 'text'])
 
+df = df.shuffle(seed=42)
+df = df.select(range(2000))
+
 df.push_to_hub('stefanocarrera/autophagy_D_text_S')
