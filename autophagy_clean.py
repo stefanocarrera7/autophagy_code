@@ -35,7 +35,9 @@ def autophagy(
     start_round: int = 0,                           # per riprendere da un round specifico in caso di interruzioni
     resume_model_id: str = None,                     # ultimo modello addestrato
     real_data_strategy: str = 'trust',              # 'correct' rimpiazza le soluzioni errate, 'trust' rimpiazza qualsiasi sia la soluzione, 'text' fa il ft con dati testuali
-    skip_first_test = False
+    skip_first_test = False,
+    temperature: float = 1,
+    top_p: float = 0.95
     ):
 
     base_tag = _sanitize_repo_name(base_model_id)
@@ -96,12 +98,11 @@ def autophagy(
         print(f"Loading model for generation via Unsloth: {current_model_id}")
         gen_model, gen_tok = FastLanguageModel.from_pretrained(
             model_name = current_model_id,
-            max_seq_length = 750,
+            max_seq_length = 1024,
             dtype = torch.float16,
             load_in_4bit = True,
             device_map = {"": 0},
-        )
-                        
+        )              
         FastLanguageModel.for_inference(gen_model)
 
 
@@ -109,7 +110,11 @@ def autophagy(
         if skip_first_test == False or (skip_first_test == True and t != start_round):
             
             print(f"\nGenerating synthetic test set for generation {t+1}...")
-            test_synth = generate_sample(test_data, gen_model, gen_tok, n_solutions=n_solutions, real_data_strategy='trust')
+            test_synth = generate_sample(test_data, gen_model, gen_tok,
+                                         n_solutions=n_solutions,
+                                         real_data_strategy='trust',
+                                         is_instruct=is_instruct, model_type=model_type,
+                                         temperature=temperature, top_p=top_p)
 
             test_data_id = f"stefanocarrera/autophagycode_D_{real_data_test}_{base_tag}_strategy_{real_data_strategy}_g{t+1}"
             test_synth.push_to_hub(test_data_id)
@@ -139,7 +144,9 @@ def autophagy(
         synth = generate_sample(current_subset,
                                 gen_model, gen_tok,
                                 n_solutions=n_sol,
-                                real_data_strategy=real_data_strategy)
+                                real_data_strategy=real_data_strategy,
+                                is_instruct=is_instruct, model_type=model_type,
+                                temperature=temperature, top_p=top_p)
         
         # --- Correct Replacemet (if chosen) ---
         if real_data_strategy == 'correct':

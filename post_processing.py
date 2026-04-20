@@ -44,7 +44,7 @@ def remove_repetition(text: str, entry_point: str) -> str:
     Safely ignores nested functions by looking only at top-level definitions (no indentation).
     """
     # Usiamo ^def per trovare SOLO le funzioni che iniziano a inizio riga (top-level)
-    pattern = r'^def\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\('
+    pattern = r'^(?:@[^\n]+\n)*def\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\('
     top_level_defs = list(re.finditer(pattern, text, flags=re.MULTILINE))
     
     # 1. Troviamo quale di queste funzioni top-level è il nostro entry_point
@@ -64,10 +64,14 @@ def remove_repetition(text: str, entry_point: str) -> str:
     # 2. Identifichiamo l'helper (che ORA siamo certi essere la funzione top-level successiva)
     helper_match = top_level_defs[entry_idx + 1]
     helper_name = helper_match.group(1)
+    helper_start = helper_match.start()
+    
+    # -> NUOVO CONTROLLO: Se il modello ridefinisce l'entry_point, è una ripetizione. Tagliamo subito.
+    if helper_name == entry_point:
+        return text[:helper_start]
     
     # 3. Estraiamo il corpo dell'entry_point (dall'inizio dell'entry point all'inizio dell'helper)
     entry_start = top_level_defs[entry_idx].start()
-    helper_start = helper_match.start()
     entry_point_body = text[entry_start:helper_start]
 
     # 4. Verifichiamo se l'helper è chiamato nel corpo dell'entry_point

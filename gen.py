@@ -26,16 +26,16 @@ class Float32LogitsProcessor(LogitsProcessor):
 def generate_solutions(prompt: str,
                        model,
                        tokenizer,
-                       temperature:float = 0.2,
+                       temperature:float = 1.0,
                        max_new_tokens:int = 300,
                        top_p = 0.95,
-                       n_solutions: int = 1):
+                       n_solutions: int = 1,
+                       do_sample: bool = True) -> list:
 
     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
     
-    use_sampling = n_solutions > 1
-    gen_temperature = temperature if use_sampling else None
-    gen_top_p = top_p if use_sampling else None
+    gen_temperature = temperature if do_sample else None
+    gen_top_p = top_p if do_sample else None
 
     # Iniettiamo i salvavita in ordine:
     # 1. Pulizia dei valori folli (NaN/Inf)
@@ -51,7 +51,7 @@ def generate_solutions(prompt: str,
         min_new_tokens=3,
         temperature=gen_temperature,
         top_p=gen_top_p,
-        do_sample=use_sampling,
+        do_sample=do_sample,
         num_return_sequences=n_solutions,
         eos_token_id=tokenizer.eos_token_id,
         pad_token_id=tokenizer.eos_token_id,

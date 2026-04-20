@@ -104,6 +104,7 @@ def finetune_model(
     else:
         ds = dataset.map(formatting_prompts)
 
+    ds = dataset.map(formatting_prompts)
     
     columns_to_keep = ["text"]
     ds = ds.remove_columns([c for c in ds.column_names if c not in columns_to_keep])

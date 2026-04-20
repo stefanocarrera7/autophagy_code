@@ -11,12 +11,16 @@ def generate_sample(data,
                     tokenizer,
                     n_solutions:int = 1,
                     real_data_strategy: str = 'trust',  # 'replace', 'trust', 'text'
+                    is_instruct: bool = False,
+                    model_type: str = "qwen",
+                    temperature: float = 1,
+                    top_p: float = 0.95
                     ) -> Dataset:
 
     sample = []
 
     if real_data_strategy != 'text':
-        max_new_t = 512
+        max_new_t = 300
     else:
         max_new_t = 64
 
@@ -28,10 +32,23 @@ def generate_sample(data,
             prompt = prompt[:-1] + '\n'
         # Forza il ritorno a capo se non c'è già
         if not prompt.endswith('\n'):
-            prompt += '\n' 
+            prompt += '\n'
+
+        # AGGIUNTA FONDAMENTALE: Allineamento del prompt per i modelli instruct
+        gen_prompt = prompt
+        if is_instruct:
+            if model_type.lower() == "qwen":
+                gen_prompt = f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
+            else:
+                gen_prompt = f"### Prompt:\n{prompt}\n\n### Completion:\n"
         
 
-        solutions = generate_solutions(prompt, model, tokenizer, n_solutions=n_solutions, max_new_tokens=max_new_t)
+        solutions = generate_solutions(gen_prompt, model, tokenizer,
+                                       n_solutions=n_solutions, 
+                                       max_new_tokens=max_new_t, 
+                                       do_sample=True,
+                                       temperature=temperature,
+                                       top_p=top_p)
 
         # Aggiunta delle soluzioni
         for s in range(n_solutions):

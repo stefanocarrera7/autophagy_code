@@ -6,6 +6,7 @@ import time
 import signal
 import functools
 import timeit
+import math, collections, heapq, bisect, itertools, typing
 
 # ---------------- Timeout handler ----------------
 class TimeoutException(Exception):
@@ -62,11 +63,16 @@ def test_solutions(solutions, entry_point, test_cell, test_format="he", verbose=
         timeouts = 0
         ns = {}
         # Inseriamo import comuni per evitare NameError
-        import math, collections, heapq, bisect, itertools
         ns.update({
             'math': math, 'collections': collections, 'heapq': heapq, 
             'bisect': bisect, 'itertools': itertools,
-            'List': list, 'Dict': dict, 'Tuple': tuple, 'Optional': lambda x: x
+            # Usa i veri oggetti di typing
+            'List': typing.List, 
+            'Dict': typing.Dict, 
+            'Tuple': typing.Tuple, 
+            'Optional': typing.Optional,
+            'Any': typing.Any,
+            'Union': typing.Union
         })
         
         try:

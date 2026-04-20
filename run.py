@@ -31,11 +31,11 @@ if __name__ == '__main__':
     # prev_adapter_repo = "stefanocarrera/autophagycode_M_Qwen3-14B_lr0.0001_c142_trust_g8"
 
     # autofagia
-    base_model_id = base_models.get('qwen_8b_instruct')
+    base_model_id = base_models.get('qwen_8b')
     autophagy.autophagy(
         base_model_id=base_model_id,
-        is_instruct = True,
-        real_data_train='mercury',
+        is_instruct = False,
+        real_data_train='taco',
         real_data_test="he",
         model_type="qwen",
         g=10,
@@ -44,5 +44,6 @@ if __name__ == '__main__':
         real_data_strategy=STRATEGY,
         start_round=0,                      
         resume_model_id=None,
-        skip_first_test=True
+        skip_first_test=False,
+        temperature=0.2
     )
