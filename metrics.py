@@ -1,8 +1,7 @@
-import time
-import tokenize
-import io
-import ast
 import math
+import tempfile
+import subprocess
+import json
 
 def passatk(n:int, c:int, k:int):
   k = min(n, k)
@@ -13,194 +12,65 @@ def passatk(n:int, c:int, k:int):
 
 
 
-HALSTEAD_OPERATORS = {
-    # Parole chiave di controllo e struttura
-    "if", "elif", "else", "for", "while", "break", "continue", "return", "yield",
-    "try", "except", "finally", "raise", "with", "as", "assert", "del", "pass",
-
-    # Definizione e organizzazione
-    "def", "class", "lambda", "import", "from", "global", "nonlocal",
-
-    # Operatori aritmetici
-    "+", "-", "*", "/", "//", "%", "**",
-
-    # Operatori di confronto
-    "==", "!=", ">", "<", ">=", "<=",
-
-    # Operatori logici
-    "and", "or", "not", "in", "is",
-
-    # Operatori bitwise
-    "&", "|", "^", "~", "<<", ">>",
-
-    # Operatori di assegnamento
-    "=", "+=", "-=", "*=", "/=", "//=", "%=", "**=", "&=", "|=", "^=", ">>=", "<<=",
-
-    # Operatori di accesso / slicing / chiamata
-    ".", "[", "]", "(", ")",  ":", ",", "}", "{",
-
-    # Funzioni built-in considerate "operatori" (eseguono azioni)
-    "print", "len", "range", "input", "open", "sum", "max", "min", "map", "filter", "zip", "sorted", "enumerate"
-}
-
-
-def h_vocavulary(n1, n2):
-    return (n1 + n2)
-
-def h_length(N1, N2):
-    return (N1 + N2)
-
-def h_volume(h_voc, h_len):
-    return h_len * math.log2(h_voc)
-
-def h_difficulty(n1, N1, n2):
-    return (n1/2) * (N1/n2)
-
-def h_effort(h_vol, h_diff):
-    return h_vol * h_diff
-
-
-def halstead_metrics(source):
-
-    try:
-        tokens = list(tokenize.generate_tokens(io.StringIO(source).readline))
-    except:
-        return None
-    operators, operands = set(), set()
-    N1 = N2 = 0
-
-    for t in tokens:
-        if t.type in (tokenize.OP, tokenize.NAME, tokenize.NUMBER):
-            if t.string in HALSTEAD_OPERATORS:
-                operators.add(t.string)
-                N1 += 1
-            else:
-                operands.add(t.string)
-                N2 += 1
-
-    n1, n2 = len(operators), len(operands)
-
-    if n1 == 0 or n2 == 0:
-            return {"vocabulary": 0,
-            "length": 0,
-            "volume": 0,
-            "difficulty": 0,
-            "effort": 0
-            }
+def ttr(code: str, tokenizer) -> float:
+    if not str(code).strip():
+        return 0.0
+        
+    tokens = tokenizer.encode(str(code), add_special_tokens=False)
+    total_tokens = len(tokens)
     
-    vocabulary = h_vocavulary(n1, n2)
-    length = h_length(N1, N2)
-    volume = h_volume(vocabulary, length)
-    difficulty = h_difficulty(n1, N1, n2)
-    effort = h_effort(volume, difficulty)
-
-    return {"vocabulary": vocabulary,
-            "length": length,
-            "volume": volume,
-            "difficulty": difficulty,
-            "effort": effort
-            }
+    if total_tokens == 0:
+        return 0.0
+        
+    unique_tokens = len(set(tokens))
+    
+    return unique_tokens / total_tokens
 
 
-import ast
-from mccabe import PathGraphingAstVisitor
+def token_dictionary(code: str, tokenizer) -> dict:
+    token_ids = tokenizer.encode(str(code), add_special_tokens=False)
+    
+    text_tokens = tokenizer.convert_ids_to_tokens(token_ids)
+    
+    token_freq = {}
+    for t_text in text_tokens:
 
-def cyclomatic_complexity_mccabe(code_string):
+        t_str = str(t_text)
+        token_freq[t_str] = token_freq.get(t_str, 0) + 1
+        
+    return token_freq
+
+
+def get_multimetric_from_string(code_string: str):
     """
-    Restituisce la complessità massima trovata nel codice.
+    Prende una stringa di codice Python, la salva in un file temporaneo,
+    esegue multimetric e restituisce un dizionario con tutte le metriche.
     """
-    try:
-        # Compila il codice in un albero sintattico
-        tree = compile(code_string, "stringa", "exec", ast.PyCF_ONLY_AST)
-    except SyntaxError:
-        return None  # Restituisce None se il codice non è valido
-
-    visitor = PathGraphingAstVisitor()
-    visitor.preorder(tree, visitor)
-    
-    # Se non ci sono grafi (es. codice vuoto o solo commenti), la complessità è 1
-    if not visitor.graphs:
-        return 1
-    
-    # Iteriamo sui valori del dizionario visitor.graphs
-    return max(graph.complexity() for graph in visitor.graphs.values())
-
-
-def loc(source: str) -> int:
-    in_block = False
-    count = 0
-
-    for line in source.splitlines():
-        i = 0
-        has_code = False  # True if the line contains code (no comment)
-
-        while i < len(line):
-            if line.startswith('"""', i) or line.startswith("'''", i):
-                in_block = not in_block
-                i += 3
-                continue
-
-            if not in_block:
-                ch = line[i]
-                if ch == '#':
-                    break
-                if not ch.isspace():
-                    has_code = True
-
-            i += 1
-
-        if has_code:
-            count += 1
-
-    return count
-
-
-def perc_of_comments(source):
-    count = 0
-    flag = False
-    for line in source.splitlines():
-        if not line.strip():
-            continue
-
-        if line.strip().startswith('#'):
-            count += 1
-            continue
-
-        if line.strip().startswith('"""') or line.strip().startswith("'''"):
-            if flag:
-                flag = False
-                count += 1
-            else: flag = True
-
-        if flag == True:
-            count += 1
-
-        if line.strip().endswith('"""') or line.strip().endswith("'''") and not (line == "'''" or line == '"""'):
-            if flag:
-                flag = False
-
-    return (count / loc(source))*100
-
-
-def original_MI(source: str) -> float:
-    halstead = halstead_metrics(source)
-    if halstead is None:
-        return None
-    V = max(halstead.get("volume"), 1e-8)
-    G = cyclomatic_complexity_mccabe(source)
-    if G == None:
-        return None
-    L = max(loc(source), 1e-8)
-    return 171 - 5.2 * math.log(V) - 0.23 * G - 16.2 * math.log(L)
-
-def radon_MI(source: str) -> float:
-    V = max(halstead_metrics(source).get("volume"), 1e-8)
-    G = cyclomatic_complexity_mccabe(source)
-    if G == None:
-        return None
-    L = max(loc(source), 1e-8)
-    C = perc_of_comments(source)
-    return max(0, 100 * (171 - 5.2 * math.log(V) - 0.23 * G - 16.2 * math.log(L) + 50 * math.sin(math.sqrt(2.4 * C))) / 171)
-
-
-
+    # 1. Crea un file temporaneo che si elimina da solo quando viene chiuso (delete=True)
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=True) as temp:
+        # Scrive il codice della tua stringa nel file
+        temp.write(code_string)
+        temp.flush()  # Forza la scrittura sul disco prima di chiamare multimetric
+        
+        try:
+            # 2. Esegue il comando bash: multimetric /tmp/nomefile_temporaneo.py
+            result = subprocess.run(
+                ['multimetric', temp.name], 
+                capture_output=True,  # Cattura l'output invece di stamparlo a schermo
+                text=True,            # Restituisce una stringa anziché byte
+                check=True
+            )
+            
+            # 3. Multimetric restituisce i dati in formato JSON, quindi li decodifichiamo
+            data = json.loads(result.stdout)
+            
+            # Le metriche globali di tutto il file si trovano sotto la chiave 'overall'
+            return data.get('overall', {})
+            
+        except subprocess.CalledProcessError as e:
+            # Cattura errori se multimetric fallisce (es. se il codice è sintatticamente troppo rotto)
+            # e restituisce None in modo da non bloccare il tuo ciclo for
+            return None
+        except json.JSONDecodeError:
+            # Sicurezza nel caso l'output non sia un JSON valido
+            return None

@@ -98,7 +98,7 @@ def autophagy(
         print(f"Loading model for generation via Unsloth: {current_model_id}")
         gen_model, gen_tok = FastLanguageModel.from_pretrained(
             model_name = current_model_id,
-            max_seq_length = 1024,
+            max_seq_length = 2048,
             dtype = torch.float16,
             load_in_4bit = True,
             device_map = {"": 0},
@@ -116,11 +116,11 @@ def autophagy(
                                          is_instruct=is_instruct, model_type=model_type,
                                          temperature=temperature, top_p=top_p)
 
-            test_data_id = f"stefanocarrera/autophagycode_D_{real_data_test}_{base_tag}_strategy_{real_data_strategy}_g{t+1}"
+            test_data_id = f"stefanocarrera/autophagycode_D_{real_data_test}_train-{real_data_train}_{base_tag}_strategy_{real_data_strategy}_t{temperature}_g{t+1}"
             test_synth.push_to_hub(test_data_id)
 
             # --- Valutazione Metriche ----   # da vedere per il text
-            evaluate_and_push_metrics(test_synth, real_data_test, base_tag, lr, t+1, strategy=real_data_strategy, verbose = False)
+            evaluate_and_push_metrics(test_synth, real_data_test, tokenizer=gen_tok, synth_repo = test_data_id, verbose = False)
 
         if t == g - 1:
             print("\nUltima generazione completata, Pipeline terminata.")
@@ -174,17 +174,18 @@ def autophagy(
             is_instruct=is_instruct,
             output_dir = ft_dir,
             model_type = model_type,
-            num_train_epochs = 2,
+            num_train_epochs = 3,
             lr = lr,
             batch_size = 1,
             grad_accum = 16,
+            pack_to_max=False,
             resume_adapter_repo = prev_adapter_repo 
         )
 
         print("\nEnd Finetuning...")
 
-        model_id = f"stefanocarrera/autophagycode_M_{real_data_train}_{base_tag}_lr{lr}_c{chunk_size}_{real_data_strategy}_g{t+1}"
-        data_id  = f"stefanocarrera/autophagycode_D_{real_data_train}_{base_tag}_lr{lr}_c{chunk_size}_{real_data_strategy}_g{t+1}"
+        model_id = f"stefanocarrera/autophagycode_M_{real_data_train}_{base_tag}_lr{lr}_c{chunk_size}_{real_data_strategy}_t{temperature}_g{t+1}"
+        data_id  = f"stefanocarrera/autophagycode_D_{real_data_train}_{base_tag}_lr{lr}_c{chunk_size}_{real_data_strategy}_t{temperature}_g{t+1}"
 
         # --- Salvataggio su HF ---
         print("\nPushing to HuggingFace Hub...")

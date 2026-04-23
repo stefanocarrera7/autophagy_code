@@ -31,7 +31,7 @@ if __name__ == '__main__':
     # prev_adapter_repo = "stefanocarrera/autophagycode_M_Qwen3-14B_lr0.0001_c142_trust_g8"
 
     # autofagia
-    base_model_id = base_models.get('qwen_8b')
+    base_model_id = base_models.get('qwen_06b')
     autophagy.autophagy(
         base_model_id=base_model_id,
         is_instruct = False,

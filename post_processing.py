@@ -38,12 +38,13 @@ def remove_markdown2(text: str, prompt: str) -> str:
         
 
 
+import re
+
 def remove_repetition(text: str, entry_point: str) -> str:
     """
     Remove repetition behaviour of LLMs keeping the entry_point function.
     Safely ignores nested functions by looking only at top-level definitions (no indentation).
     """
-    # Usiamo ^def per trovare SOLO le funzioni che iniziano a inizio riga (top-level)
     pattern = r'^(?:@[^\n]+\n)*def\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\('
     top_level_defs = list(re.finditer(pattern, text, flags=re.MULTILINE))
     
@@ -55,36 +56,32 @@ def remove_repetition(text: str, entry_point: str) -> str:
             break
             
     if entry_idx == -1:
-        return text  # Entry point non trovato come funzione top-level
+        return text  
         
-    # Se l'entry point è l'ultima o l'unica funzione top-level, non c'è nulla da tagliare
     if entry_idx == len(top_level_defs) - 1:
         return text
 
-    # 2. Identifichiamo l'helper (che ORA siamo certi essere la funzione top-level successiva)
+    # 2. Identifichiamo la funzione successiva
     helper_match = top_level_defs[entry_idx + 1]
     helper_name = helper_match.group(1)
     helper_start = helper_match.start()
     
-    # -> NUOVO CONTROLLO: Se il modello ridefinisce l'entry_point, è una ripetizione. Tagliamo subito.
+    # FIX: Se la funzione successiva ha lo stesso nome dell'entry point, è una copia. Tagliamo.
     if helper_name == entry_point:
         return text[:helper_start]
     
-    # 3. Estraiamo il corpo dell'entry_point (dall'inizio dell'entry point all'inizio dell'helper)
+    # 3. Estraiamo il corpo dell'entry_point 
     entry_start = top_level_defs[entry_idx].start()
     entry_point_body = text[entry_start:helper_start]
 
     # 4. Verifichiamo se l'helper è chiamato nel corpo dell'entry_point
-    if re.search(rf'\b{helper_name}\b', entry_point_body):
-        # L'helper è utilizzato! Dobbiamo tenerlo.
-        # Guardiamo se esiste una terza funzione top-level a cui poter tagliare
+    if re.search(rf'\b{re.escape(helper_name)}\s*\(', entry_point_body):
         if entry_idx + 2 < len(top_level_defs):
             second_helper_start = top_level_defs[entry_idx + 2].start()
             return text[:second_helper_start]
         else:
-            return text  # Non ci sono altre funzioni top-level dopo l'helper, teniamo tutto
+            return text 
     else:
-        # L'helper NON è utilizzato. Tagliamo esattamente dove inizia l'helper.
         return text[:helper_start]
 
 
@@ -130,15 +127,17 @@ def extract_functions(llm_output: str) -> str:
             
         # 3. Logica di cattura del corpo della funzione
         if inside_target_block:
-            # Righe indentate fanno parte della funzione
-            if line.startswith(' ') or line.startswith('\t'):
+            # Le righe vuote mantengono la formattazione
+            if not stripped:
                 extracted_lines.append(line)
-            # Le righe vuote sono sicure e mantengono la formattazione
-            elif not stripped:
+            # Usa .isspace() per catturare \t, spazi normali e spazi \xa0
+            elif line[0].isspace():
+                extracted_lines.append(line)
+            # I commenti a livello 0 non devono interrompere la funzione
+            elif stripped.startswith('#'):
                 extracted_lines.append(line)
             else:
-                # Abbiamo incontrato una riga a livello 0 (es. "print(...)", "===")
-                # Usciamo dallo stato di cattura, MA siamo pronti a rientrarci se troviamo un altro "def "
+                # Se troviamo testo a livello 0 (es. un altro def, o print), usciamo
                 inside_target_block = False
                 
     # Pulizia: rimuove eventuali righe vuote accumulate alla fine del codice estratto

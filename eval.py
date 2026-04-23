@@ -1,7 +1,3 @@
-from statistics import mean
-from metrics import passatk
-from metrics import halstead_metrics, original_MI
-from gen import generate_solutions
 import time
 import signal
 import functools
@@ -77,7 +73,7 @@ def test_solutions(solutions, entry_point, test_cell, test_format="he", verbose=
         
         try:
             # --- FASE 1: DEFINIZIONE ---
-            signal.alarm(1)
+            signal.alarm(3)
             try:
                 exec(sol.strip(), ns, ns)
             finally:
