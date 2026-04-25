@@ -66,6 +66,7 @@ def evaluate_and_push_metrics(
             "comment_percentage": None,
             "TTR": metrics.ttr(sol, tokenizer),
             "token_dict": json.dumps(string_key_token_dict),
+            "shannon_entropy": metrics.token_entropy(sol, tokenizer),
             "n_func_defined": n_def,
             "entry_point_repeated": n_entry > 1
         }
@@ -208,7 +209,7 @@ def evaluate_correctness_only(test_synth: Dataset, real_data_test: str) -> dict:
         
         is_correct = False
         if test_cell.strip() and test_cell != "nan":
-            res = test_solutions([sol], entry, test_cell, data_format=real_data_test)
+            res = test_solutions([sol], entry, test_cell, test_format=real_data_test)
             if res['solutions_summary']:
                 summary = res['solutions_summary'][0]
                 if summary.get('fail', 0) == 0 and summary.get('ok', 0) > 0:
@@ -233,7 +234,7 @@ def evaluate_executable_only(test_synth: Dataset, real_data_test: str) -> dict:
         
         is_executable = False
         if test_cell.strip() and test_cell != "nan":
-            res = test_solutions([sol], entry, test_cell, data_format=real_data_test)
+            res = test_solutions([sol], entry, test_cell, test_format=real_data_test)
             if res['prop_correct_defined'] > 0.99:
                     is_executable = True
         

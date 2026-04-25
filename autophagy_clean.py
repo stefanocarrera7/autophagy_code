@@ -37,7 +37,8 @@ def autophagy(
     real_data_strategy: str = 'trust',              # 'correct' rimpiazza le soluzioni errate, 'trust' rimpiazza qualsiasi sia la soluzione, 'text' fa il ft con dati testuali
     skip_first_test = False,
     temperature: float = 1,
-    top_p: float = 0.95
+    top_p: float = 0.95,
+    save_token_log: bool = False
     ):
 
     base_tag = _sanitize_repo_name(base_model_id)
@@ -114,7 +115,8 @@ def autophagy(
                                          n_solutions=n_solutions,
                                          real_data_strategy='trust',
                                          is_instruct=is_instruct, model_type=model_type,
-                                         temperature=temperature, top_p=top_p)
+                                         temperature=temperature, top_p=top_p,
+                                         save_token_log=save_token_log)
 
             test_data_id = f"stefanocarrera/autophagycode_D_{real_data_test}_train-{real_data_train}_{base_tag}_strategy_{real_data_strategy}_t{temperature}_g{t+1}"
             test_synth.push_to_hub(test_data_id)
@@ -146,8 +148,9 @@ def autophagy(
                                 n_solutions=n_sol,
                                 real_data_strategy=real_data_strategy,
                                 is_instruct=is_instruct, model_type=model_type,
-                                temperature=temperature, top_p=top_p)
-        
+                                temperature=temperature, top_p=top_p,
+                                save_token_log=save_token_log)
+
         # --- Correct Replacemet (if chosen) ---
         if real_data_strategy == 'correct':
             synth = original_correct_replace(synth, current_subset, real_data_test)

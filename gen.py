@@ -23,6 +23,44 @@ class Float32LogitsProcessor(LogitsProcessor):
         return scores.to(torch.float32)
 
 
+def get_top_k_predictions(scores_tuple, tokenizer, n_solutions, k=5):
+    """
+    Estrae i Top-K token e le loro probabilità per ogni step di generazione,
+    gestendo correttamente il numero di soluzioni (batch size implicito).
+    Restituisce una lista di dizionari (uno per ogni soluzione generata).
+    """
+    progressions = [{} for _ in range(n_solutions)]
+    
+    for step_idx, step_logits in enumerate(scores_tuple):
+        # step_logits ha dimensione: (n_solutions, vocab_size)
+        probs = torch.softmax(step_logits, dim=-1)
+        
+        # Otteniamo top K per TUTTE le n_solutions simultaneamente
+        top_probs, top_indices = torch.topk(probs, k=k, dim=-1)
+        
+        for sol_idx in range(n_solutions):
+            step_tokens_list = []
+            for i in range(k):
+                token_id = top_indices[sol_idx, i].item()
+                prob = top_probs[sol_idx, i].item()
+                
+                # Decodifica il token
+                token_str = tokenizer.convert_ids_to_tokens(token_id)
+                # Formattazione per pulire eventuali caratteri speciali (opzionale)
+                if isinstance(token_str, bytes):
+                    token_str = token_str.decode('utf-8', errors='ignore')
+                    
+                step_tokens_list.append({
+                    "token": token_str,
+                    "prob": round(prob, 5)
+                })
+            
+            progressions[sol_idx][f"step_{step_idx}"] = step_tokens_list
+            
+    return progressions
+
+
+
 def generate_solutions(prompt: str,
                        model,
                        tokenizer,
@@ -30,7 +68,8 @@ def generate_solutions(prompt: str,
                        max_new_tokens:int = 300,
                        top_p = 0.95,
                        n_solutions: int = 1,
-                       do_sample: bool = True) -> list:
+                       do_sample: bool = True,
+                       save_token_log: bool = False) -> list:
 
     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
     
@@ -45,6 +84,12 @@ def generate_solutions(prompt: str,
         Float32LogitsProcessor()
     ])
 
+    return_dict_in_generate = False
+    output_scores = False
+    if save_token_log:
+        return_dict_in_generate = True
+        output_scores = True
+
     outputs = model.generate(
         **inputs,
         max_new_tokens=max_new_tokens,
@@ -55,10 +100,25 @@ def generate_solutions(prompt: str,
         num_return_sequences=n_solutions,
         eos_token_id=tokenizer.eos_token_id,
         pad_token_id=tokenizer.eos_token_id,
-        logits_processor=processors
+        logits_processor=processors,
+        return_dict_in_generate=return_dict_in_generate,
+        output_scores=output_scores
     )
     
-    raw_solutions = [tokenizer.decode(out, skip_special_tokens=True) for out in outputs]
-    final_solutions = [x.strip() for x in raw_solutions]
+    if save_token_log:
+        sequences = outputs.sequences
+        scores_tuple = outputs.scores
+    else:
+        sequences = outputs
 
-    return final_solutions
+    # Decodifica del testo
+    raw_solutions = [tokenizer.decode(out, skip_special_tokens=True) for out in sequences]
+    final_solutions = [x.strip() for x in raw_solutions]
+    
+    if save_token_log:
+        # Estrazione delle probabilità
+        top_k_progs = get_top_k_predictions(scores_tuple, tokenizer, n_solutions=n_solutions, k=5)
+    else:
+        top_k_progs = None
+
+    return final_solutions, top_k_progs

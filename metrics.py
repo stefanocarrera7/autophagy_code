@@ -2,6 +2,8 @@ import math
 import tempfile
 import subprocess
 import json
+import torch
+from datasets import Dataset
 
 def passatk(n:int, c:int, k:int):
   k = min(n, k)
@@ -74,3 +76,15 @@ def get_multimetric_from_string(code_string: str):
         except json.JSONDecodeError:
             # Sicurezza nel caso l'output non sia un JSON valido
             return None
+
+
+def token_entropy(code: str, tokenizer) -> float:
+    freq_dict = token_dictionary(code, tokenizer)
+    total_tokens = sum(freq_dict.values())
+    if total_tokens == 0: return 0.0
+
+    entropy = 0.0
+    for count in freq_dict.values():
+        p_i = count / total_tokens
+        entropy -= p_i * math.log2(p_i)
+    return entropy

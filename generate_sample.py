@@ -1,3 +1,4 @@
+import json
 from datasets import Dataset
 from gen import generate_solutions
 from post_processing import remove_markdown2
@@ -14,7 +15,8 @@ def generate_sample(data,
                     is_instruct: bool = False,
                     model_type: str = "qwen",
                     temperature: float = 1,
-                    top_p: float = 0.95
+                    top_p: float = 0.95,
+                    save_token_log: bool = False
                     ) -> Dataset:
 
     sample = []
@@ -43,12 +45,13 @@ def generate_sample(data,
                 gen_prompt = f"### Prompt:\n{prompt}\n\n### Completion:\n"
         
 
-        solutions = generate_solutions(gen_prompt, model, tokenizer,
+        solutions, top_k_progs = generate_solutions(gen_prompt, model, tokenizer,
                                        n_solutions=n_solutions, 
                                        max_new_tokens=max_new_t, 
                                        do_sample=True,
                                        temperature=temperature,
-                                       top_p=top_p)
+                                       top_p=top_p,
+                                       save_token_log=save_token_log)
 
         # Aggiunta delle soluzioni
         for s in range(n_solutions):
@@ -57,6 +60,7 @@ def generate_sample(data,
                             "entry_point": data[row]['entry_point'],
                             "prompt": prompt,
                             "completion": solutions[s],
+                            "top_5_progression": json.dumps(top_k_progs[s]) if top_k_progs is not None else None,
                             "test": data[row]['test'],
                         })
         
