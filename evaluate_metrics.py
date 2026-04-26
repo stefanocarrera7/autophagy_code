@@ -67,6 +67,8 @@ def evaluate_and_push_metrics(
             "TTR": metrics.ttr(sol, tokenizer),
             "token_dict": json.dumps(string_key_token_dict),
             "shannon_entropy": metrics.token_entropy(sol, tokenizer),
+            'mean_predictive_entropy': None,
+            'max_predictive_entropy': None,
             "n_func_defined": n_def,
             "entry_point_repeated": n_entry > 1
         }
@@ -178,6 +180,17 @@ def evaluate_and_push_metrics(
 
         except SyntaxError:
             pass
+
+            
+        progression_json = test_synth["top_k_progression"][j]
+        if progression_json:
+            prog_data = json.loads(progression_json)
+            # Estrae tutte le entropie degli step e ne fa la media
+            entropies = [step_info["pred_entropy"] for step_info in prog_data.values()]
+            mean_pred_entropy = sum(entropies) / len(entropies) if entropies else 0.0
+            max_pred_entropy = max(entropies) if entropies else 0.0
+            row_metrics["mean_predictive_entropy"] = mean_pred_entropy
+            row_metrics["max_predictive_entropy"] = max_pred_entropy
 
 
         generation_results.append(row_metrics)

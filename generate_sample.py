@@ -60,7 +60,7 @@ def generate_sample(data,
                             "entry_point": data[row]['entry_point'],
                             "prompt": prompt,
                             "completion": solutions[s],
-                            "top_5_progression": json.dumps(top_k_progs[s]) if top_k_progs is not None else None,
+                            "top_k_progression": json.dumps(top_k_progs[s]) if top_k_progs is not None else None,
                             "test": data[row]['test'],
                         })
         

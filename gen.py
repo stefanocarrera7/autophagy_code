@@ -23,17 +23,30 @@ class Float32LogitsProcessor(LogitsProcessor):
         return scores.to(torch.float32)
 
 
+
+def compute_predictive_entropy_batch(probs):
+    """
+    Calcola l'Entropia di Shannon Predittiva per un batch di probabilità.
+    probs shape: (n_solutions, vocab_size)
+    """
+    epsilon = 1e-10
+
+    entropy = -torch.sum(probs * torch.log2(probs + epsilon), dim=-1)
+    
+    return entropy
+
+
 def get_top_k_predictions(scores_tuple, tokenizer, n_solutions, k=5):
     """
-    Estrae i Top-K token e le loro probabilità per ogni step di generazione,
-    gestendo correttamente il numero di soluzioni (batch size implicito).
-    Restituisce una lista di dizionari (uno per ogni soluzione generata).
+    Estrae i Top-K token e le loro probabilità per ogni step di generazione.
+    Calcola anche l'entropia predittiva (incertezza) del modello a ogni step.
     """
     progressions = [{} for _ in range(n_solutions)]
     
     for step_idx, step_logits in enumerate(scores_tuple):
-        # step_logits ha dimensione: (n_solutions, vocab_size)
+        
         probs = torch.softmax(step_logits, dim=-1)
+        step_entropies = compute_predictive_entropy_batch(probs)
         
         # Otteniamo top K per TUTTE le n_solutions simultaneamente
         top_probs, top_indices = torch.topk(probs, k=k, dim=-1)
@@ -55,7 +68,11 @@ def get_top_k_predictions(scores_tuple, tokenizer, n_solutions, k=5):
                     "prob": round(prob, 5)
                 })
             
-            progressions[sol_idx][f"step_{step_idx}"] = step_tokens_list
+            # --- NOVITÀ: Strutturiamo il dizionario per includere l'entropia ---
+            progressions[sol_idx][f"step_{step_idx}"] = {
+                "top_k": step_tokens_list,
+                "pred_entropy": round(step_entropies[sol_idx].item(), 5)
+            }
             
     return progressions
 
