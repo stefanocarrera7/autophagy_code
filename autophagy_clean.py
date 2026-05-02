@@ -38,7 +38,9 @@ def autophagy(
     skip_first_test = False,
     temperature: float = 1,
     top_p: float = 0.95,
-    save_token_log: bool = False
+    save_token_log: bool = False,
+    run_id: str = "",
+    seed: int = 42
     ):
 
     base_tag = _sanitize_repo_name(base_model_id)
@@ -118,11 +120,11 @@ def autophagy(
                                          temperature=temperature, top_p=top_p,
                                          save_token_log=save_token_log)
 
-            test_data_id = f"stefanocarrera/autophagycode_D_{real_data_test}_train-{real_data_train}_{base_tag}_strategy_{real_data_strategy}_t{temperature}_g{t+1}"
+            test_data_id = f"stefanocarrera/autophagycode_D_{real_data_test}_train-{real_data_train}_{base_tag}_strategy_{real_data_strategy}_t{temperature}_g{t+1}_{run_id}"
             test_synth.push_to_hub(test_data_id)
 
             # --- Valutazione Metriche ----   # da vedere per il text
-            evaluate_and_push_metrics(test_synth, real_data_test, tokenizer=gen_tok, synth_repo = test_data_id, verbose = False)
+            evaluate_and_push_metrics(test_synth, real_data_test, tokenizer=gen_tok, synth_repo = test_data_id, run_id=run_id, verbose = False)
 
         if t == g - 1:
             print("\nUltima generazione completata, Pipeline terminata.")
@@ -182,13 +184,14 @@ def autophagy(
             batch_size = 1,
             grad_accum = 16,
             pack_to_max=False,
-            resume_adapter_repo = prev_adapter_repo 
+            resume_adapter_repo = prev_adapter_repo,
+            seed = seed
         )
 
         print("\nEnd Finetuning...")
 
-        model_id = f"stefanocarrera/autophagycode_M_{real_data_train}_{base_tag}_lr{lr}_c{chunk_size}_{real_data_strategy}_t{temperature}_g{t+1}"
-        data_id  = f"stefanocarrera/autophagycode_D_{real_data_train}_{base_tag}_lr{lr}_c{chunk_size}_{real_data_strategy}_t{temperature}_g{t+1}"
+        model_id = f"stefanocarrera/autophagycode_M_{real_data_train}_{base_tag}_lr{lr}_c{chunk_size}_{real_data_strategy}_t{temperature}_g{t+1}_{run_id}"
+        data_id  = f"stefanocarrera/autophagycode_D_{real_data_train}_{base_tag}_lr{lr}_c{chunk_size}_{real_data_strategy}_t{temperature}_g{t+1}_{run_id}"
 
         # --- Salvataggio su HF ---
         print("\nPushing to HuggingFace Hub...")

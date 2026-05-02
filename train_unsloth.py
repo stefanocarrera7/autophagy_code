@@ -20,7 +20,8 @@ def finetune_model(
     lora_dropout: float = 0,
     target_modules = ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
     pack_to_max: bool = True,
-    resume_adapter_repo: str | None = None
+    resume_adapter_repo: str | None = None,
+    seed:str = 42
     ) -> tuple[Any, Any]:
     """
     Fine-tuning universale con gestione dinamica del template di prompt.
@@ -61,7 +62,7 @@ def finetune_model(
             lora_dropout = lora_dropout,
             target_modules = target_modules,
             use_gradient_checkpointing = "unsloth",
-            random_state = 42,
+            random_state = seed,
             bias = "none",
             use_rslora = False,
             loftq_config = None,
@@ -98,7 +99,8 @@ def finetune_model(
         warmup_steps = 8,
         weight_decay = 0.01,
         report_to = "none",
-        seed = 42,
+        seed = seed,
+        data_seed = seed,
         max_grad_norm = 1.0, 
     )
 
