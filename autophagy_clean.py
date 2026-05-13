@@ -1,5 +1,5 @@
 from datasets import Dataset, load_dataset
-from generate_sample import generate_sample, original_correct_replace, synth_correct_replace
+from generate_sample import generate_sample
 from train_unsloth import finetune_model
 from evaluate_metrics import evaluate_and_push_metrics
 from huggingface_hub import HfApi
@@ -124,7 +124,7 @@ def autophagy(
             test_synth.push_to_hub(test_data_id)
 
             # --- Valutazione Metriche ----   # da vedere per il text
-            evaluate_and_push_metrics(test_synth, real_data_test, tokenizer=gen_tok, synth_repo = test_data_id, run_id=run_id, verbose = False)
+            evaluate_and_push_metrics(test_synth, real_data_test, tokenizer=gen_tok, synth_repo = test_data_id, verbose = False)
 
         if t == g - 1:
             print("\nUltima generazione completata, Pipeline terminata.")
@@ -152,13 +152,6 @@ def autophagy(
                                 is_instruct=is_instruct, model_type=model_type,
                                 temperature=temperature, top_p=top_p,
                                 save_token_log=save_token_log)
-
-        # --- Correct Replacemet (if chosen) ---
-        if real_data_strategy == 'correct':
-            synth = original_correct_replace(synth, current_subset, real_data_test)
-
-        if real_data_strategy == 'sc':
-            synth, _ = synth_correct_replace(synth, real_data_test)
 
 
         # --- PULIZIA DELLA VRAM (PRE-TRAINING) ---
@@ -212,13 +205,11 @@ def autophagy(
         # --- 7. PULIZIA DELLA VRAM (POST-TRAINING) EXTREME ---
         print("\nPulizia della VRAM in corso prima del prossimo round di generazione...")
         
-        # Sposta esplicitamente il modello sulla CPU per liberare subito la VRAM
         ft_model.cpu()
         
         del ft_model
         del ft_tok
         
-        # Doppio giro di garbage collection
         gc.collect()
         gc.collect() 
         

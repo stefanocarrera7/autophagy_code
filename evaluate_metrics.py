@@ -14,7 +14,6 @@ def evaluate_and_push_metrics(
     real_data_test: str,
     tokenizer,
     synth_repo: str,
-    run_id: str = "",
     verbose = False
     ) -> None:
     """
@@ -198,7 +197,7 @@ def evaluate_and_push_metrics(
     # Salvataggio delle metriche su Hugging Face
     metrics_dataset = Dataset.from_list(generation_results)
 
-    metrics_data_id = synth_repo + "_metrics_" + run_id
+    metrics_data_id = synth_repo + "_metrics"
     metrics_dataset.push_to_hub(metrics_data_id)
     print(f"Pushed metrics to {metrics_data_id}")
 

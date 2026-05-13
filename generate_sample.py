@@ -1,9 +1,6 @@
 import json
 from datasets import Dataset
 from gen import generate_solutions
-from post_processing import remove_markdown2
-import random
-from eval import test_solutions
 from evaluate_metrics import evaluate_correctness_only, evaluate_executable_only
 
 
@@ -36,7 +33,7 @@ def generate_sample(data,
         if not prompt.endswith('\n'):
             prompt += '\n'
 
-        # AGGIUNTA FONDAMENTALE: Allineamento del prompt per i modelli instruct
+
         gen_prompt = prompt
         if is_instruct:
             if model_type.lower() == "qwen":
@@ -77,7 +74,6 @@ def generate_sample(data,
         return sample
 
     return Dataset.from_list(sample)
-
 
 
 def original_correct_replace(data: Dataset, original_data: Dataset, real_data_str: str) -> Dataset:
@@ -128,57 +124,5 @@ def synth_correct_mantain(synth_data: Dataset, real_data_test: str) -> Dataset:
     
     return filtered_dataset
 
-
-
-def synth_correct_replace(synth_data: Dataset, real_data_test: str = 'he') -> Dataset:
-    """
-    Takes the synth data with n_solutions solutions generated per task and takes only the first correct among the generated per task.
-    If no correct solution has been generated for a given task, then the first is given
-    """
-    # raggruppiamo le righe per task_id mantenendo l'ordine di generazione
-    tasks_grouped = {}
-    for row in synth_data:
-        tid = row['task_id']
-        if tid not in tasks_grouped:
-            tasks_grouped[tid] = []
-        tasks_grouped[tid].append(row)
-
-    filtered_sample = []
-
-    solution_replaced = {}
-    # iteriamo su ogni gruppo di task
-    for tid, rows in tasks_grouped.items():
-        selected_row = rows[0]  # prendiamo la prima per default se falliscono tutte
-        solution_replaced[tid] = False
-        
-        count = 0
-        # valutiamo le soluzioni una per una
-        for row in rows:
-            sol = remove_markdown2(str(row["completion"]))
-            entry = str(row["entry_point"])
-            test_cell = str(row["test"])
-            
-            is_correct = False
-            if test_cell.strip() and test_cell != "nan":
-                # eseguiamo il test solo su questa specifica soluzione
-                res = test_solutions([sol], entry, test_cell, data_format=real_data_test)
-                if res['solutions_summary']:
-                    summary = res['solutions_summary'][0]
-                    if summary.get('fail', 0) == 0 and summary.get('ok', 0) > 0:
-                        is_correct = True
-            
-            # Se la soluzione passa i test, la selezioniamo e INTERROMPIAMO il ciclo
-            if is_correct:
-                selected_row = row
-                if count > 0:
-                    solution_replaced[tid] = True
-                break
-
-            count += 1
-                
-        filtered_sample.append(selected_row)
-
-    # 4. Ricostruiamo e restituiamo il Dataset filtrato
-    return Dataset.from_list(filtered_sample), solution_replaced
 
 
