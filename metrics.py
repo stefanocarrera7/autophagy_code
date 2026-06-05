@@ -87,3 +87,36 @@ def token_entropy(code: str, tokenizer) -> float:
         p_i = count / total_tokens
         entropy -= p_i * math.log2(p_i)
     return entropy
+
+
+import torch
+
+def model_perplexity(model, tokenizer, text):
+    # 1. Tokenizza il testo (nel tuo caso, il codice sorgente)
+    encodings = tokenizer(text, return_tensors="pt", truncation=True, max_length=512)
+    
+    input_ids = encodings["input_ids"].to(model.device)
+    attention_mask = encodings["attention_mask"].to(model.device)
+
+    # 2. Ottieni i logit dal modello senza calcolare i gradienti
+    with torch.no_grad():
+        outputs = model(input_ids, attention_mask=attention_mask)
+        logits = outputs.logits
+
+    # 3. Shift dei logit per allinearli ai target token (next token prediction)
+    shift_logits = logits[:, :-1, :].contiguous()
+    shift_labels = input_ids[:, 1:].contiguous()
+    
+    # 4. Calcola le probabilità normalizzate con softmax (log_softmax per stabilità numerica)
+    log_probs = torch.nn.functional.log_softmax(shift_logits, dim=-1)
+
+    # 5. Estrai le probabilità logaritmiche corrispondenti ai token reali del testo
+    token_log_probs = torch.gather(log_probs, 2, shift_labels.unsqueeze(-1)).squeeze(-1)
+
+    # 6. Calcola la loss media (negative log likelihood media per token)
+    mean_nll = -token_log_probs.mean()
+
+    # 7. Calcola la surplexity (perplessità) applicando l'esponenziale
+    ppl = torch.exp(mean_nll)
+    
+    return ppl.item()

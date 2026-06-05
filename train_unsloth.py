@@ -43,7 +43,7 @@ def finetune_model(
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
 
-    # 2) Configurazione PEFT (Modificata per la tua Tesi)
+    # 2) Configurazione PEFT
     if resume_adapter_repo:
         print(f"🔄 Riprendo l'addestramento dall'adapter: {resume_adapter_repo}")
         # Carichiamo l'adapter sopra il modello base e abilitiamo esplicitamente l'addestramento sui pesi LoRA
