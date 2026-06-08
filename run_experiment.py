@@ -30,6 +30,9 @@ def run_single_experiment():
     
     set_seed(args.seed)
 
+    model_key = "Qwen3-8B" if args.model_key == "qwen_8b" else "Qwen3-4B"
+    resume_model_id = f"stefanocarrera/autophagycode_M_mercury_{model_key}_lr0.0001_c142_{args.strategy}_t{args.temp}_g9_run{args.run_id}"
+
     try:
         autophagy.autophagy(
             base_model_id=args.model_id,
@@ -41,9 +44,9 @@ def run_single_experiment():
             n_solutions=1,
             lr=1e-4,
             real_data_strategy=args.strategy,
-            start_round=0,                     
-            resume_model_id=None,
-            skip_first_test=False,
+            start_round=9,                     
+            resume_model_id=resume_model_id,
+            skip_first_test=True,
             temperature=args.temp,
             top_p=0.99,
             save_token_log=True,

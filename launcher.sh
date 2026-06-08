@@ -8,13 +8,13 @@ MODEL_KEYS=("qwen_4b" "qwen_8b")
 # MODEL_KEYS=("qwen_4b")
 
 # Definisci le temperature
-TEMPERATURES=(0.2) # Esempio: (0.2 1.0)
+TEMPERATURES=(0.2 1) # Esempio: (0.2 1.0)
 
 # Definisci le run e i seed (associati per indice)
 RUN_IDS=("run0" "run1" "run2") # Esempio: (run0 run1 run2)
 SEEDS=(42 123 999)
 
-STRATEGY="surplexity"
+STRATEGY="trust"
 
 # Ciclo sui modelli
 for i in "${!MODELS[@]}"; do

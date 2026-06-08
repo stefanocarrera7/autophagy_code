@@ -127,7 +127,7 @@ def autophagy(
             # --- Valutazione Metriche ----   # da vedere per il text
             evaluate_and_push_metrics(test_synth, real_data_test, tokenizer=gen_tok, synth_repo = test_data_id, verbose = False)
 
-        if t == g - 1:
+        if t == g:
             print("\nUltima generazione completata, Pipeline terminata.")
             break
 
