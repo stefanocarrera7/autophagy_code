@@ -91,7 +91,7 @@ def autophagy(
     
 
     # ======= MAIN LOOP ========
-    for t in range(start_round, g):
+    for t in range(start_round, g+1):
         print(f"\n{'='*40}")
         print(f"   === Generation round {t+1}/{g} ===")
         print(f"{'='*40}")

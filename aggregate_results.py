@@ -7,9 +7,9 @@ HF_TOKEN = os.getenv("token_write")
 login(token=HF_TOKEN)
 
 
-models = ['Qwen3-0.6B', 'Qwen3-4B', 'Qwen3-8B']
-temperatures = ['0.2','1']
-generations = range(1, 11)
+models = ['Qwen3-4B', 'Qwen3-8B']
+temperatures = ['0.2', '0.5', '0.75', '1.0', '1.1', '1.25', '1.5']
+generations = range(1, 12)
 runs = [0, 1, 2] 
 
 all_data = []
@@ -48,7 +48,7 @@ else:
     exit()
 
 df_all_to_push = Dataset.from_pandas(df_all)
-df_all_to_push.push_to_hub("stefanocarrera/autophagycode_D_results-per-task_06-4-8B_02-1t_3run")
+df_all_to_push.push_to_hub("stefanocarrera/autophagycode_D_results-per-task_4-8B_02-1.5t_3run")
 
 # 4. Aggregazione delle metriche
 metriche_da_aggregare = {
@@ -83,4 +83,4 @@ summary_df = df_all.groupby(['model', 'temperature', 'experiment', 'generation',
 summary_df = summary_df.round(4)
 
 summary_df_to_push = Dataset.from_pandas(summary_df)
-summary_df_to_push.push_to_hub("stefanocarrera/autophagycode_D_results-agg_06-4-8B_02-1t_3run")
+summary_df_to_push.push_to_hub("stefanocarrera/autophagycode_D_results-agg_4-8B_02-1.5t_3run")

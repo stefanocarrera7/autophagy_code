@@ -2,4 +2,9 @@ __pycache__/
 unsloth_venv/
 unsloth_compiled_cache/
 runs/
+TACO_to_he.py/
+prove.py/
+model_viz/
+merge_all.py/
+mbpp_to_he.py/
 .env

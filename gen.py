@@ -68,7 +68,7 @@ def get_top_k_predictions(scores_tuple, tokenizer, n_solutions, k=5):
                     "prob": round(prob, 5)
                 })
             
-            # --- NOVITÀ: Strutturiamo il dizionario per includere l'entropia ---
+            # dizionario per includere l'entropia
             progressions[sol_idx][f"step_{step_idx}"] = {
                 "top_k": step_tokens_list,
                 "pred_entropy": round(step_entropies[sol_idx].item(), 5)

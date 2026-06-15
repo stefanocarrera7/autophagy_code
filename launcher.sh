@@ -1,18 +1,25 @@
 #!/bin/bash
 
 # Definisci i modelli
-MODELS=("unsloth/Qwen3-4B-Base-unsloth-bnb-4bit" "unsloth/Qwen3-8B-Base-unsloth-bnb-4bit") # Aggiungi altri qui separati da spazio
-MODEL_KEYS=("qwen_4b" "qwen_8b")
+# MODELS=("unsloth/Qwen3-4B-Base-unsloth-bnb-4bit" "unsloth/Qwen3-8B-Base-unsloth-bnb-4bit") # Aggiungi altri qui separati da spazio
+# MODEL_KEYS=("qwen_4b" "qwen_8b")
 
-# MODELS=("unsloth/Qwen3-4B-Base-unsloth-bnb-4bit") # Aggiungi altri qui separati da spazio
-# MODEL_KEYS=("qwen_4b")
+MODELS=("unsloth/Qwen3-4B-Base-unsloth-bnb-4bit") # Aggiungi altri qui separati da spazio
+MODEL_KEYS=("qwen_4b")
+
 
 # Definisci le temperature
-TEMPERATURES=(0.2 1) # Esempio: (0.2 1.0)
+TEMPERATURES=(1.1) # Esempio: (0.2 1.0)
 
 # Definisci le run e i seed (associati per indice)
-RUN_IDS=("run0" "run1" "run2") # Esempio: (run0 run1 run2)
-SEEDS=(42 123 999)
+# RUN_IDS=("run0" "run1" "run2") # Esempio: (run0 run1 run2)
+# SEEDS=(42 123 999)
+
+RUN_IDS=("run2") # Esempio: (run0 run1 run2)
+SEEDS=(999)
+
+# mancano tutte le gen 10 per la temperature 1
+# surplexity è stata fatta solo per 0.2 e 1
 
 STRATEGY="trust"
 
