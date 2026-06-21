@@ -10,4 +10,6 @@ mbpp_to_he.py
 aggregate_results.py
 rename_folder_hf.py
 run.py
+testing_solutions.py
+generate_test_data.py
 .env

@@ -37,9 +37,6 @@ def remove_markdown2(text: str, prompt: str) -> str:
     return text
         
 
-
-import re
-
 def remove_repetition(text: str, entry_point: str) -> str:
     """
     Remove repetition behaviour of LLMs keeping the entry_point function.

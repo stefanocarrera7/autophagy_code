@@ -64,65 +64,7 @@ def generate_sample(data,
         if (row+1) % 10 == 0:
             print(f"{row+1} / {len(data)} tasks processed.")
 
-            
-    if real_data_strategy == 'scm':
-        sample = synth_correct_mantain(Dataset.from_list(sample), real_data_test='he')
-        return sample
-    
-    if real_data_strategy == 'sem':
-        sample = synth_executable_mantain(Dataset.from_list(sample), real_data_test='he')
-        return sample
-
     return Dataset.from_list(sample)
-
-
-def original_correct_replace(data: Dataset, original_data: Dataset, real_data_str: str) -> Dataset:
-    """
-    Sostituisce le soluzioni errate usando il task_id per garantire l'allineamento.
-    """
-    # mappa della correttezza {task_id: True/False}
-    correctness_map = evaluate_correctness_only(data, real_data_str)
-    original_mapping = {row['task_id']: row['completion'] for row in original_data}
-
-    def replacement_logic(example):
-        tid = example['task_id']
-        if not correctness_map.get(tid, False) and original_mapping[tid]:
-            example['completion'] = original_mapping[tid]
-        return example
-
-    return data.map(replacement_logic)
-
-
-
-def synth_executable_mantain(synth_data: Dataset, real_data_test: str) -> Dataset:
-    """
-    Filtra il dataset mantenendo solo i campioni con task_id corretti.
-    """
-    executable_map = evaluate_executable_only(synth_data, real_data_test)
-
-    filtered_dataset = synth_data.filter(
-        lambda row: executable_map.get(row['task_id'], False)
-    )
-
-    print(f"Soluzioni eseguibili mantenute: {len(filtered_dataset)} su {len(synth_data)}")
-    
-    return filtered_dataset
-
-
-
-def synth_correct_mantain(synth_data: Dataset, real_data_test: str) -> Dataset:
-    """
-    Filtra il dataset mantenendo solo i campioni con task_id corretti.
-    """
-    correctness_map = evaluate_correctness_only(synth_data, real_data_test)
-
-    filtered_dataset = synth_data.filter(
-        lambda row: correctness_map.get(row['task_id'], False)
-    )
-
-    print(f"Soluzioni corrette mantenute: {len(filtered_dataset)} su {len(synth_data)}")
-    
-    return filtered_dataset
 
 
 

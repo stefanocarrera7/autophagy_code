@@ -2,7 +2,6 @@ from datasets import Dataset, load_dataset
 from generate_sample import generate_sample
 from train_unsloth import finetune_model
 from evaluate_metrics import evaluate_and_push_metrics
-from metrics import model_perplexity
 from huggingface_hub import HfApi
 import os
 import shutil
@@ -34,8 +33,8 @@ def autophagy(
     n_solutions: int = 1,
     lr: float = 1e-5,
     start_round: int = 0,                           # per riprendere da un round specifico in caso di interruzioni
-    resume_model_id: str = None,                     # ultimo modello addestrato
-    real_data_strategy: str = 'trust',              # 'correct' rimpiazza le soluzioni errate, 'trust' rimpiazza qualsiasi sia la soluzione, 'text' fa il ft con dati testuali
+    resume_model_id: str = None,                    # ultimo modello addestrato
+    real_data_strategy: str = 'trust',              
     skip_first_test = False,
     temperature: float = 1,
     top_p: float = 0.95,
@@ -153,33 +152,6 @@ def autophagy(
                                 is_instruct=is_instruct, model_type=model_type,
                                 temperature=temperature, top_p=top_p,
                                 save_token_log=save_token_log)
-
-        # SURPLEXITY STRATEGY ==============================================
-        if real_data_strategy == 'surplexity':
-            print("\nCalcolo della Surplexity per ogni soluzione generata...")
-            
-            surplexity_scores = []
-            
-            for row in synth:
-                solution_text = row.get('completion', '')
-                
-                # Calcoliamo lo score usando il modello generativo attualmente in VRAM
-                score = model_perplexity(gen_model, gen_tok, solution_text)
-                surplexity_scores.append(score)
-            
-            # Aggiungiamo i punteggi come nuova colonna nel dataset HuggingFace
-            synth = synth.add_column("surplexity", surplexity_scores)
-            
-            # Ordiniamo il dataset in modo decrescente (valori più alti = più sorpresa)
-            print("Ordinamento e selezione delle Top-100 soluzioni più sorprendenti...")
-            synth = synth.sort("surplexity", reverse=True)
-            
-            # Selezioniamo solo le prime 100 (o meno, se il chunk generato è < 100)
-            top_k = min(100, len(synth))
-            synth = synth.select(range(top_k))
-            
-            print(f"Dataset filtrato: mantenute {len(synth)} soluzioni.")
-        # =====================================================================
 
 
         # --- PULIZIA DELLA VRAM (PRE-TRAINING) ---
