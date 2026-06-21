@@ -4,7 +4,9 @@ unsloth_compiled_cache/
 runs/
 TACO_to_he.py
 prove.py
-model_viz
+model_viz.py
 merge_all.py
 mbpp_to_he.py
+aggregate_results.py
+rename_folder_hf.py
 .env
