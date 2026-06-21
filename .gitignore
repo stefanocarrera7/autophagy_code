@@ -9,4 +9,5 @@ merge_all.py
 mbpp_to_he.py
 aggregate_results.py
 rename_folder_hf.py
+run.py
 .env

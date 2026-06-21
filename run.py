@@ -5,7 +5,7 @@ import gc
 import torch
 os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
 from huggingface_hub import login
-import autophagy_clean as autophagy 
+import autophagy as autophagy 
 from transformers import set_seed
 
 HF_TOKEN = os.getenv("token_write")

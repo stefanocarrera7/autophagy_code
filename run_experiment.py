@@ -3,7 +3,7 @@ import os
 import torch
 from huggingface_hub import login
 from transformers import set_seed
-import autophagy_clean as autophagy 
+import autophagy as autophagy 
 
 # Configurazione ambiente
 os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"

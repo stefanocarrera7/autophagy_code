@@ -1,6 +1,6 @@
 import json
 from datasets import Dataset
-from gen import generate_solutions
+from generate_solutions import generate_solutions
 from evaluate_metrics import evaluate_correctness_only, evaluate_executable_only
 
 
