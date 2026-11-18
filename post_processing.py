@@ -1,6 +1,5 @@
 # -*- coding: latin-1 -*-
 import re
-import pandas as pd
 
 
 def find_idxs(text: str, pattern: str) -> list:

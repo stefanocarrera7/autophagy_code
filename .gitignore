@@ -12,4 +12,6 @@ rename_folder_hf.py
 run.py
 testing_solutions.py
 generate_test_data.py
+plots/
+op_acc_plot.py
 .env

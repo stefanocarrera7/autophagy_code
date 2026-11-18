@@ -196,3 +196,117 @@ def test_solutions(solutions, entry_point, test_cell, test_format="he", verbose=
         "c": n_correct,
         "errors": errors
     }
+
+
+import traceback
+from typing import Any, Dict, Optional
+
+
+def run_and_locate_error(
+    code_str: str, global_scope: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """Esegue una stringa di codice Python e restituisce i dettagli sull'errore
+
+    e la sua posizione esatta (riga, colonna, indici di carattere 0-based).
+    """
+    filename = "<dynamic_code>"
+    lines = code_str.splitlines(keepends=True)
+
+    def _to_char_index(lineno: int, col_0based: int) -> int:
+        if lineno < 1 or lineno > len(lines):
+            return -1
+        prev_chars = sum(len(lines[i]) for i in range(lineno - 1))
+        return prev_chars + col_0based
+
+    result = {
+        "success": True,
+        "error_type": None,
+        "error_message": None,
+        "line_number": None,
+        "col_offset": None,
+        "char_start": None,
+        "char_end": None,
+        "failing_code": None,
+        "stage": None,  # 'syntax' o 'runtime'
+    }
+
+    # 1. Controllo SyntaxError in fase di compilazione
+    try:
+        compiled_code = compile(code_str, filename=filename, mode="exec")
+    except SyntaxError as se:
+        result["success"] = False
+        result["stage"] = "syntax"
+        result["error_type"] = type(se).__name__
+        result["error_message"] = se.msg
+        result["line_number"] = se.lineno
+
+        # In SyntaxError, se.offset è 1-based (None se non disponibile)
+        col_0based = (se.offset - 1) if se.offset is not None else 0
+        result["col_offset"] = col_0based
+
+        start_idx = _to_char_index(se.lineno, col_0based)
+        # Se disponibile in Python 3.10+, end_offset/end_lineno definiscono l'ampiezza
+        if hasattr(se, "end_offset") and se.end_offset is not None:
+            end_lineno = se.end_lineno or se.lineno
+            end_idx = _to_char_index(end_lineno, se.end_offset - 1)
+        else:
+            end_idx = start_idx + 1
+
+        result["char_start"] = start_idx
+        result["char_end"] = end_idx
+        result["failing_code"] = code_str[start_idx:end_idx] or (
+            se.text.strip() if se.text else None
+        )
+        return result
+
+    # 2. Controllo RuntimeError in fase di esecuzione
+    exec_scope = {} if global_scope is None else global_scope
+    try:
+        exec(compiled_code, exec_scope)
+    except Exception as e:
+        result["success"] = False
+        result["stage"] = "runtime"
+        result["error_type"] = type(e).__name__
+        result["error_message"] = str(e)
+
+        # Estrai i frame associati al codice dinamico
+        tb_frames = [
+            f
+            for f in traceback.extract_tb(e.__traceback__)
+            if f.filename == filename
+        ]
+
+        if tb_frames:
+            last_frame = tb_frames[-1]
+            lineno = last_frame.lineno
+            result["line_number"] = lineno
+
+            # In Python 3.11+, i frame espongono colno ed end_colno (1-based)
+            if hasattr(last_frame, "colno") and last_frame.colno is not None:
+                col_0based = last_frame.colno - 1
+                end_lineno = last_frame.end_lineno or lineno
+                end_col_0based = (
+                    (last_frame.end_colno - 1)
+                    if last_frame.end_colno is not None
+                    else col_0based
+                )
+
+                start_idx = _to_char_index(lineno, col_0based)
+                end_idx = _to_char_index(end_lineno, end_col_0based)
+            else:
+                # Fallback: intera riga
+                start_idx = _to_char_index(lineno, 0)
+                end_idx = start_idx + len(lines[lineno - 1].rstrip("\r\n"))
+                col_0based = 0
+
+            result["col_offset"] = col_0based
+            result["char_start"] = start_idx
+            result["char_end"] = end_idx
+            result["failing_code"] = code_str[start_idx:end_idx]
+        else:
+            # Errore avvenuto al di fuori della stringa (es. libreria C/built-in)
+            result["stage"] = "external_runtime"
+
+        return result
+
+    return result
